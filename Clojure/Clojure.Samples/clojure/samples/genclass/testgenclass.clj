@@ -57,7 +57,7 @@
 (defn -f [x] x)
 (defn -g [x] (inc x))
 
-(defn -main [& args] 
+(defn Main [& args] 
    (let [ v (test.my.gen/fy 12 "test" "thingy")]
      (println (str (.State v)))))
      

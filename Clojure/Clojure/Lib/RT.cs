@@ -25,6 +25,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using RTProperties = clojure.runtime.Properties;
+using Microsoft.Extensions.DependencyModel;
 
 
 namespace clojure.lang
@@ -2751,98 +2752,163 @@ namespace clojure.lang
 
         #region Locating types
 
-        static readonly char[] _triggerTypeChars = new char[] { '`', ',', '[', '&' };
-
-        public static Type classForName(string p)
+        // Cache for all runtime library assembly names, loaded once on demand.
+        private static readonly Lazy<List<AssemblyName>> _runtimeAssemblyNames = new Lazy<List<AssemblyName>>(() =>
         {
-
-            // This used to come later.  Moved it up to the top for compiling definterface, e.g.
-            //  (definterface IMyInterface ... )
-            //  First compiled create IMyInterface classs, gets stored in the compiled-types map.
-            //  Then eval'd so the we update the current environment and store the the eval-types map.
-            //  However, definterface does an import, it picks up the version in the eval-types map.
-            //  When a subsequent call tries to get IMyInterface, it was being found by Type.GetType.
-            //  So code being compiled was picking up the eval'd version instead of the compiled version.
-
-            Type t = Compiler.FindDuplicateType(p);
-            if (t != null)
-                return t;
-
-            // fastest path, will succeed for assembly qualified names (returned by Type.AssemblyQualifiedName)
-            // or namespace qualified names (returned by Type.FullName) in the executing assembly or mscorlib
-            // e.g. "UnityEngine.Transform, UnityEngine, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null"
-            t = Type.GetType(p, false);
-
-            // Added the IsPublic check to deal with shadowed types in .Net Core,
-            // e.g. System.Environment in assemblies System.Private.CoreLib and System.Runtime.Exceptions.
-            // It is private in the former and public in the latter.
-            // Unfortunately, Type.GetType was finding the former.
-            if (t != null && (t.IsPublic || t.IsNestedPublic))
-                return t;
-
-
-
-
-            AppDomain domain = AppDomain.CurrentDomain;
-            Assembly[] assys = domain.GetAssemblies();
-            List<Type> candidateTypes = new();
-
-            // fast path, will succeed for namespace qualified names (returned by Type.FullName)
-            // e.g. "UnityEngine.Transform"
-            foreach (Assembly assy in assys)
+            var names = new List<AssemblyName>();
+            
+            try
             {
-                Type t1 = assy.GetType(p, false);
-                if (t1 != null && (t1.IsPublic || t1.IsNestedPublic))
-                    return t1;
-            }
-
-            // slow path, will succeed for display names (returned by Type.Name)
-            // e.g. "Transform"
-            foreach (Assembly assy1 in assys)
-            {
-                Type t1 = null;
-
-                if (IsRunningOnMono)
+                // DependencyContext.Default can be null in some scenarios (like unit tests or static initializers).
+                // Loading the context from a known assembly is more robust.
+                var entryAssembly = Assembly.GetEntryAssembly();
+                
+                // If there's no entry assembly (e.g., when hosted in a non-standard way),
+                // fall back to the assembly that contains the RT class itself (Clojure.dll).
+                if (entryAssembly == null)
                 {
-                    // I do not know why Assembly.GetType fails to find types in our assemblies in Mono
+                    entryAssembly = typeof(RT).Assembly;
+                }
+                
+                var context = Microsoft.Extensions.DependencyModel.DependencyContext.Load(entryAssembly);
 
-                    if (!assy1.IsDynamic)
+                if (context != null)
+                {
+                    foreach (var library in context.RuntimeLibraries)
                     {
-                        try
+                        // The library.Name is the assembly name
+                        var assemblyName = new AssemblyName(library.Name);
+                        names.Add(assemblyName);
+                    }
+                }
+            }
+            catch
+            {
+                // If DependencyContext is not available, continue without it
+                // This can happen in certain hosting scenarios
+            }
+            
+            // Also load shared framework assemblies from TRUSTED_PLATFORM_ASSEMBLIES
+            // This includes ASP.NET Core and other shared frameworks
+#if !NETFRAMEWORK
+            try
+            {
+                var trustedAssemblies = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
+                if (!string.IsNullOrEmpty(trustedAssemblies))
+                {
+                    var paths = trustedAssemblies.Split(Path.PathSeparator);
+                    foreach (var path in paths)
+                    {
+                        if (!string.IsNullOrEmpty(path) && File.Exists(path))
                         {
-
-                            foreach (Type tt in assy1.GetTypes())
+                            try
                             {
-                                if (tt.Name.Equals(p))
-                                {
-                                    t1 = tt;
-                                    break;
-                                }
+                                var assemblyName = AssemblyName.GetAssemblyName(path);
+                                names.Add(assemblyName);
                             }
-                        }
-                        catch (System.Reflection.ReflectionTypeLoadException)
-                        {
+                            catch
+                            {
+                                // Skip assemblies that can't be loaded
+                            }
                         }
                     }
                 }
-
-                if (t1 != null && !candidateTypes.Contains(t1))
-                    candidateTypes.Add(t1);
             }
+            catch
+            {
+                // If TRUSTED_PLATFORM_ASSEMBLIES is not available, continue without it
+            }
+#endif
+            
+            // Use Distinct to avoid attempting to load the same assembly multiple times.
+            return names.Distinct().ToList();
+        });
 
-            if (candidateTypes.Count == 0)
-                t = null;
-            else if (candidateTypes.Count == 1)
-                t = candidateTypes[0];
-            else // multiple, ambiguous
-                t = null;
+        static readonly char[] _triggerTypeChars = new char[] { '`', ',', '[', '&' };
 
-            if (t == null && p.IndexOfAny(_triggerTypeChars) != -1)
-                t = ClrTypeSpec.GetTypeFromName(p);
+public static Type classForName(string p)
+{
+    // First, check for types generated during the current compilation session.
+    Type t = Compiler.FindDuplicateType(p);
+    if (t != null)
+        return t;
 
-            return t;
+    // Second, use Type.GetType for the fastest path. This will succeed for:
+    // - Assembly-qualified names
+    // - Types in mscorlib/System.Private.CoreLib  
+    // - Types in the executing assembly
+    t = Type.GetType(p, false, false);
+    if (t != null && (t.IsPublic || t.IsNestedPublic))
+        return t;
+
+    // Third, search all assemblies that are already loaded into the AppDomain.
+    // This handles most cases after initial startup.
+    foreach (Assembly assy in AppDomain.CurrentDomain.GetAssemblies())
+    {
+        Type t1 = assy.GetType(p, false);
+        if (t1 != null && (t1.IsPublic || t1.IsNestedPublic))
+            return t1;
+    }
+
+    // Fourth, for types that might be in framework assemblies, try with assembly-qualified names
+    // This handles cases like BlockingCollection which are in System.Collections.Concurrent assembly
+    if (p.IndexOf('.') > 0)  // Has a namespace
+    {
+        // Extract namespace parts to guess assembly name
+        string[] parts = p.Split('.');
+        
+        // Try common patterns for framework assemblies
+        // For System.Collections.Concurrent.BlockingCollection`1, try System.Collections.Concurrent assembly
+        for (int i = Math.Min(parts.Length - 1, 3); i >= 2; i--)
+        {
+            string possibleAssembly = string.Join(".", parts.Take(i));
+            string qualifiedName = $"{p}, {possibleAssembly}";
+            
+            t = Type.GetType(qualifiedName,
+                assemblyResolver: (assemblyName) =>
+                {
+                    try
+                    {
+                        // Use Assembly.Load which triggers the runtime's assembly resolution
+                        return Assembly.Load(assemblyName.Name);
+                    }
+                    catch { }
+                    return null;
+                },
+                typeResolver: null,
+                throwOnError: false,
+                ignoreCase: false);
+                
+            if (t != null && (t.IsPublic || t.IsNestedPublic))
+                return t;
         }
+    }
 
+    // Final fallback: Load assemblies from DependencyContext.
+    // This handles NuGet packages and other application dependencies.
+    foreach (var assemblyName in _runtimeAssemblyNames.Value)
+    {
+        try
+        {
+            Assembly loadedAsm = Assembly.Load(assemblyName);
+            Type t2 = loadedAsm.GetType(p, false);
+            if (t2 != null && (t2.IsPublic || t2.IsNestedPublic))
+            {
+                return t2;
+            }
+        }
+        catch
+        {
+            // Ignore assemblies that fail to load
+        }
+    }
+
+    // Finally, handle special type syntax (generics, arrays, etc.)
+    if (p.IndexOfAny(_triggerTypeChars) != -1)
+        return ClrTypeSpec.GetTypeFromName(p);
+
+    return null;
+}
 
         public static Type classForNameE(string p)
         {
@@ -3354,6 +3420,7 @@ namespace clojure.lang
         {
             if (!RuntimeBootstrapFlag.DisableFileLoad)
             {
+                
                 FileInfo cljInfo = sourceExtensions.Map((ext) => FindFile(relativePath + ext)).Where((fi) => !(fi is null)).FirstOrDefault();
 
                 var dllRelativePath = relativePath.Replace('/', '.');
@@ -3402,7 +3469,6 @@ namespace clojure.lang
                 Var.popThreadBindings();
             }
 
-
             bool loaded = TryLoadFromEmbeddedResource(relativePath, relativePath + ".cljr.dll")
                 || TryLoadFromEmbeddedResource(relativePath, relativePath + ".cljc.dll")
                 || TryLoadFromEmbeddedResource(relativePath, relativePath + ".clj.dll");
@@ -3416,6 +3482,8 @@ namespace clojure.lang
 
         private static bool TryLoadFromEmbeddedResource(string relativePath, string assemblyname)
         {
+            Console.WriteLine($"DEBUG TryLoadFromEmbeddedResource: relativePath={relativePath}, assemblyname={assemblyname}");
+            
             var asmStream = GetEmbeddedResourceStream(assemblyname, out _);
             if (asmStream != null)
             {
@@ -3448,15 +3516,20 @@ namespace clojure.lang
             }
             if (stream != null)
             {
+                Console.WriteLine($"DEBUG: Found embedded resource {embeddedCljName} in {containingAssembly.GetName().Name}, about to load it");
                 using (var rdr = new StreamReader(stream))
                 {
+                    // Use a better source location format for embedded resources
+                    var sourcePath = $"{containingAssembly.GetName().Name}/{embeddedCljName}";
+                    
                     if (booleanCast(Compiler.CompileFilesVar.deref()))
-                        Compile(containingAssembly.FullName, embeddedCljName, rdr, relativePath);
+                        Compile(sourcePath, embeddedCljName, rdr, relativePath);
                     else
-                        LoadScript(containingAssembly.FullName, embeddedCljName, rdr, relativePath);
+                        LoadScript(sourcePath, embeddedCljName, rdr, relativePath);
                 }
                 return true;
             }
+            Console.WriteLine($"DEBUG: No embedded resource found for {relativePath}");
             return false;
         }
 
@@ -3588,9 +3661,14 @@ namespace clojure.lang
             return path.Replace('/', Path.DirectorySeparatorChar);
         }
 
+        
         static Stream GetEmbeddedResourceStream(string resourceName, out Assembly containingAssembly)
         {
             containingAssembly = null;
+            
+            Console.WriteLine($"DEBUG: GetEmbeddedResourceStream looking for resource: {resourceName}");
+            
+            // First, check already loaded assemblies
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
             {
                 if (!asm.IsDynamic)
@@ -3601,6 +3679,7 @@ namespace clojure.lang
                         if (stream != null)
                         {
                             containingAssembly = asm;
+                            Console.WriteLine($"DEBUG: Found resource in already loaded assembly: {asm.FullName}");
                             return stream;
                         }
                     }
@@ -3623,8 +3702,96 @@ namespace clojure.lang
                     }
                 }
             }
+            
+            // If not found and it looks like a Clojure namespace resource,
+            // try to load the corresponding assembly
+            if (resourceName.Contains(".") && (resourceName.EndsWith(".cljr") || resourceName.EndsWith(".clj") || resourceName.EndsWith(".cljc")))
+            {
+                // Extract potential assembly name from resource name
+                // e.g., "clojure.tools.reader.reader_types.cljr" -> try "clojure.tools.reader.reader_types", then "clojure.tools.reader", then "clojure.tools"
+                var lastDot = resourceName.LastIndexOf('.');
+                if (lastDot > 0)
+                {
+                    var fullNamespace = resourceName.Substring(0, lastDot).Replace('/', '.');
+                    
+                    // Try progressively shorter namespace prefixes
+                    var namespaceParts = fullNamespace.Split('.');
+                    for (int i = namespaceParts.Length; i >= 2; i--)
+                    {
+                        var potentialAssemblyName = string.Join(".", namespaceParts.Take(i));
+                        
+                        Console.WriteLine($"DEBUG: Attempting to auto-load assembly '{potentialAssemblyName}' for resource '{resourceName}'");
+                        
+                        try
+                        {
+                            // Try to load the assembly by name
+                            var loadedAsm = Assembly.Load(potentialAssemblyName);
+                            if (loadedAsm != null)
+                            {
+                                Console.WriteLine($"DEBUG: Successfully loaded assembly: {loadedAsm.FullName}");
+                                var stream = loadedAsm.GetManifestResourceStream(resourceName);
+                                if (stream != null)
+                                {
+                                    Console.WriteLine($"DEBUG: Found resource in auto-loaded assembly");
+                                    containingAssembly = loadedAsm;
+                                    return stream;
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"DEBUG: Resource not found in auto-loaded assembly, checking if it was already loaded");
+                                    // After loading the assembly, check all assemblies again as it might have been loaded
+                                    foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                                    {
+                                        if (!asm.IsDynamic)
+                                        {
+                                            try
+                                            {
+                                                var s = asm.GetManifestResourceStream(resourceName);
+                                                if (s != null)
+                                                {
+                                                    Console.WriteLine($"DEBUG: Found resource in {asm.GetName().Name} after auto-loading");
+                                                    containingAssembly = asm;
+                                                    return s;
+                                                }
+                                            }
+                                            catch { }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"DEBUG: Failed to auto-load assembly '{potentialAssemblyName}': {ex.Message}");
+                        }
+                    }
+                }
+            }
+            
+            // Check again after CLR resolution attempts
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (!asm.IsDynamic)
+                {
+                    try
+                    {
+                        var stream = asm.GetManifestResourceStream(resourceName);
+                        if (stream != null)
+                        {
+                            containingAssembly = asm;
+                            return stream;
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore exceptions
+                    }
+                }
+            }
+            
             return null;
         }
+        
 
         static byte[] ReadStreamBytes(Stream stream)
         {

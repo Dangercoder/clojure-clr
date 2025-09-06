@@ -41,12 +41,21 @@ namespace clojure.lang
         static Dictionary<Symbol, Type> CreateDefaultImportDictionary()
         {
             var q = GetAllTypesInNamespace("System");
-            var d = q.ToDictionary(keySelector: t => Symbol.intern(t.Name));
+            // Handle duplicates by taking the first occurrence of each type name
+            var d = new Dictionary<Symbol, Type>();
+            foreach (var type in q)
+            {
+                var symbol = Symbol.intern(type.Name);
+                if (!d.ContainsKey(symbol))
+                {
+                    d.Add(symbol, type);
+                }
+            }
 
             // ADDED THESE TO SUPPORT THE BOOTSTRAPPING IN THE JAVA CORE.CLJ
-            d.Add(Symbol.intern("StringBuilder"), typeof(StringBuilder));
-            d.Add(Symbol.intern("BigInteger"), typeof(clojure.lang.BigInteger));
-            d.Add(Symbol.intern("BigDecimal"), typeof(clojure.lang.BigDecimal));
+            d[Symbol.intern("StringBuilder")] = typeof(StringBuilder);
+            d[Symbol.intern("BigInteger")] = typeof(clojure.lang.BigInteger);
+            d[Symbol.intern("BigDecimal")] = typeof(clojure.lang.BigDecimal);
 
             return d;
         }

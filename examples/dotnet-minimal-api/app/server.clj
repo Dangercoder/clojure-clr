@@ -22,21 +22,19 @@
 
     (EndpointRouteBuilderExtensions/MapGet app "/dog"
       (gen-delegate |System.Func`1[System.Threading.Tasks.Task`1[System.Object]]| []
-        ((^:async fn* []
-           (t/await (.GetStringAsync http-client "https://dogapi.dog/api/v2/facts?limit=1"))))))
+        (t/async (t/await (.GetStringAsync http-client "https://dogapi.dog/api/v2/facts?limit=1")))))
 
     (EndpointRouteBuilderExtensions/MapGet app "/cat"
       (gen-delegate |System.Func`1[System.Threading.Tasks.Task`1[System.Object]]| []
-        ((^:async fn* []
-           (t/await (.GetStringAsync http-client "https://catfact.ninja/fact"))))))
+        (t/async (t/await (.GetStringAsync http-client "https://catfact.ninja/fact")))))
 
     (EndpointRouteBuilderExtensions/MapGet app "/both"
       (gen-delegate |System.Func`1[System.Threading.Tasks.Task`1[System.Object]]| []
-        ((^:async fn* []
-           (let [dog-task (.GetStringAsync http-client "https://dogapi.dog/api/v2/facts?limit=1")
-                 cat-task (.GetStringAsync http-client "https://catfact.ninja/fact")
-                 [a b] (t/await-all dog-task cat-task)]
-             (str "{\"dog\":" a ",\"cat\":" b "}"))))))
+        (t/async
+          (let [dog-task (.GetStringAsync http-client "https://dogapi.dog/api/v2/facts?limit=1")
+                cat-task (.GetStringAsync http-client "https://catfact.ninja/fact")
+                [a b] (t/await-all dog-task cat-task)]
+            (str "{\"dog\":" a ",\"cat\":" b "}")))))
 
     (EndpointRouteBuilderExtensions/MapGet app "/status"
       (gen-delegate |System.Func`1[System.String]| []

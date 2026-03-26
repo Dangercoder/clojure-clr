@@ -4,26 +4,15 @@ using System.Threading.Tasks;
 RT.Init();
 RT.var("clojure.core", "require").invoke(Symbol.intern("app.handlers"));
 
-// Grab Clojure handler vars
-var fetchDogFact = RT.var("app.handlers", "fetch-dog-fact");
-var fetchCatFact = RT.var("app.handlers", "fetch-cat-fact");
-var fetchBoth    = RT.var("app.handlers", "fetch-both");
-var status       = RT.var("app.handlers", "status");
-var indexHtml    = RT.var("app.handlers", "index-html");
-
-// Thin async wrapper: invoke Clojure ^:async fn, await the Task<object>
-async Task<IResult> Json(IFn handler)
-{
-    var result = (Task<object>)handler.invoke();
-    return Results.Content((string)await result, "application/json");
-}
-
 var app = WebApplication.CreateBuilder(args).Build();
 
-app.MapGet("/",      () => Results.Content((string)indexHtml.invoke(), "text/html"));
-app.MapGet("/dog",   () => Json(fetchDogFact));
-app.MapGet("/cat",   () => Json(fetchCatFact));
-app.MapGet("/both",  () => Json(fetchBoth));
-app.MapGet("/status",() => Results.Content((string)status.invoke(), "application/json"));
+// All handler logic lives in app/handlers.clj — this is just plumbing.
+IFn V(string name) => (IFn)RT.var("app.handlers", name).deref();
+
+app.MapGet("/",      () => Results.Content((string)V("index-html").invoke(), "text/html"));
+app.MapGet("/dog",   async () => (string)await (Task<object>)V("fetch-dog-fact").invoke());
+app.MapGet("/cat",   async () => (string)await (Task<object>)V("fetch-cat-fact").invoke());
+app.MapGet("/both",  async () => (string)await (Task<object>)V("fetch-both").invoke());
+app.MapGet("/status",() => (string)V("status").invoke());
 
 app.Run();

@@ -202,7 +202,7 @@ public sealed class MyAssemblyGen
         if ( _entryPointMethodBuilder is not null || _docWriter is not null)
             SavePersistedAssemblyHard();
         else
-            ((PersistedAssemblyBuilder)_myAssembly).Save(_outFileName);
+            ((PersistedAssemblyBuilder)_myAssembly).Save(Path.Combine(_outDir, _outFileName));
         return Path.Combine(_outDir, _outFileName);
 #else
         return null;
@@ -234,7 +234,7 @@ public sealed class MyAssemblyGen
         peBuilder.Serialize(peBlob);
 
         // Create the executable:
-        using FileStream fileStream = new(_outFileName, FileMode.Create, FileAccess.Write);
+        using FileStream fileStream = new(Path.Combine(_outDir, _outFileName), FileMode.Create, FileAccess.Write);
         peBlob.WriteContentTo(fileStream);
     }
 

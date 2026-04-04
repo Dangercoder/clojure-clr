@@ -1,5 +1,5 @@
 (ns app.server
-  (:require [clojure.async.task :as t])
+  (:require [clojure.clr.async.task :as t])
   (:import [Microsoft.AspNetCore.Builder WebApplication EndpointRouteBuilderExtensions]
            [Microsoft.Extensions.Hosting HostingAbstractionsHostExtensions]
            [Microsoft.Data.Sqlite SqliteConnection]
@@ -84,7 +84,9 @@
     (async-GET app "/both"
       (let [dog-task (.GetStringAsync http-client "https://dogapi.dog/api/v2/facts?limit=1")
             cat-task (.GetStringAsync http-client "https://catfact.ninja/fact")
-            [a b] (t/await-all dog-task cat-task)]
+            results (t/await (t/await-all [dog-task cat-task]))
+            a (aget results 0)
+            b (aget results 1)]
         (str "{\"dog\":" a ",\"cat\":" b "}")))
 
     ;; ── Database routes ──────────────────────────────────────────────

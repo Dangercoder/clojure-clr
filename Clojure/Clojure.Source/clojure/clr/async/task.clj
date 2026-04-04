@@ -9,15 +9,18 @@
 ;; ── Internal helpers ──────────────────────────────────────────────────
 
 (defn- task-result
-  "Extracts the Result from a completed Task<T> via PropertyInfo.
+  "Extracts the result from a completed Task<T> via its typed awaiter.
+   Uses GetAwaiter().GetResult() which unwraps exceptions cleanly
+   (no AggregateException wrapping unlike .Result).
    Returns nil for non-generic Task (void)."
   [^Task task]
   (let [t (.GetType task)]
     (when (.IsGenericType t)
       (let [^Type type-arg (aget (.GetGenericArguments t) 0)]
         (when-not (= "VoidTaskResult" (.Name type-arg))
-          (-> (.GetProperty t "Result")
-              (.GetValue task)))))))
+          (let [awaiter (.Invoke (.GetMethod t "GetAwaiter" Type/EmptyTypes) task nil)]
+            (.Invoke (.GetMethod (.GetType ^Object awaiter) "GetResult" Type/EmptyTypes)
+                     awaiter nil)))))))
 
 ;; ── Macros (only these two require macro status) ──────────────────────
 
@@ -125,7 +128,8 @@
      (t/result (t/completed-task))   ;=> nil
      (t/result (t/async (t/await (t/delay-task 100)) \"done\"))  ;=> \"done\""
   [^Task task]
-  ;; .GetAwaiter on Task base returns non-generic TaskAwaiter.
-  ;; .GetResult blocks and unwraps AggregateException -> inner exception.
+  ;; Block until complete. Non-generic GetResult() handles void tasks
+  ;; and throws inner exception (not AggregateException) on fault.
   (-> task .GetAwaiter .GetResult)
+  ;; For Task<T>, extract the typed result via the generic awaiter.
   (task-result task))

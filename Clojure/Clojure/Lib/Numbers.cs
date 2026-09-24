@@ -289,7 +289,16 @@ namespace clojure.lang
 
 
 
-        public static bool isZero(object x) { return ops(x).isZero(x); }
+        // Fast paths: two longs or two doubles skip the ops dispatch (Type.GetTypeCode, two
+        // virtual calls and ConvertToLong/ConvertToDouble per argument). They call the same
+        // overflow-checked long overloads, so results and exceptions are unchanged.
+
+        public static bool isZero(object x)
+        {
+            if (x is long l) return l == 0;
+            if (x is double d) return d == 0;
+            return ops(x).isZero(x);
+        }
 
 
 
@@ -307,7 +316,12 @@ namespace clojure.lang
 
 
 
-        public static bool isPos(object x) { return ops(x).isPos(x); }
+        public static bool isPos(object x)
+        {
+            if (x is long l) return l > 0;
+            if (x is double d) return d > 0;
+            return ops(x).isPos(x);
+        }
 
 
         public static bool isPos(double x) { return x > 0; }
@@ -324,7 +338,12 @@ namespace clojure.lang
 
 
 
-        public static bool isNeg(object x) { return ops(x).isNeg(x); }
+        public static bool isNeg(object x)
+        {
+            if (x is long l) return l < 0;
+            if (x is double d) return d < 0;
+            return ops(x).isNeg(x);
+        }
 
 
         public static bool isNeg(double x) { return x < 0; }
@@ -345,7 +364,12 @@ namespace clojure.lang
         #region add, addP, unchecked_add
 
 
-        public static object add(object x, object y) { return ops(x).combine(ops(y)).add(x, y); }
+        public static object add(object x, object y)
+        {
+            if (x is long lx && y is long ly) return num(add(lx, ly));
+            if (x is double dx && y is double dy) return dx + dy;
+            return ops(x).combine(ops(y)).add(x, y);
+        }
 
 
         public static double add(double x, double y) { return x + y; }
@@ -607,6 +631,10 @@ namespace clojure.lang
 
         public static object minus(object x, object y)
         {
+            // long.MinValue keeps the general path: it computes x + (-y), and negating
+            // MinValue throws even where x - y would not.
+            if (x is long lx && y is long ly && ly != long.MinValue) return num(minus(lx, ly));
+            if (x is double dx && y is double dy) return dx - dy;
             Ops yops = ops(y);
             Ops xyops = ops(x).combine(yops);
 
@@ -882,7 +910,12 @@ namespace clojure.lang
         #region multiply, multiplyP, unchecked_multiply
 
 
-        public static object multiply(object x, object y) { return ops(x).combine(ops(y)).multiply(x, y); }
+        public static object multiply(object x, object y)
+        {
+            if (x is long lx && y is long ly) return num(multiply(lx, ly));
+            if (x is double dx && y is double dy) return dx * dy;
+            return ops(x).combine(ops(y)).multiply(x, y);
+        }
 
 
         public static double multiply(double x, double y) { return x * y; }
@@ -1247,7 +1280,12 @@ namespace clojure.lang
         #region inc, incP, unchecked_inc, dec, decP, unchecked_dec
 
 
-        public static object inc(object x) { return ops(x).inc(x); }
+        public static object inc(object x)
+        {
+            if (x is long l) return num(inc(l));
+            if (x is double d) return d + 1;
+            return ops(x).inc(x);
+        }
 
 
         public static double inc(double x) { return x + 1; }
@@ -1301,7 +1339,12 @@ namespace clojure.lang
         }
 
 
-        public static object dec(object x) { return ops(x).dec(x); }
+        public static object dec(object x)
+        {
+            if (x is long l) return num(dec(l));
+            if (x is double d) return d - 1;
+            return ops(x).dec(x);
+        }
 
 
         public static double dec(double x) { return x - 1; }
@@ -1400,6 +1443,8 @@ namespace clojure.lang
 
         public static bool equal(object x, object y)
         {
+            if (x is long lx && y is long ly) return lx == ly;
+            if (x is double dx && y is double dy) return dx == dy;
             return category(x) == category(y)
                 && ops(x).combine(ops(y)).equiv(x, y);
         }
@@ -1407,6 +1452,8 @@ namespace clojure.lang
 
         public static int compare(object x, object y)
         {
+            if (x is long lx && y is long ly) return lx < ly ? -1 : lx > ly ? 1 : 0;
+            if (x is double dx && y is double dy) return dx < dy ? -1 : dy < dx ? 1 : 0;
             Ops xyops = ops(x).combine(ops(y));
             if (xyops.lt(x, y))
                 return -1;
@@ -1421,7 +1468,12 @@ namespace clojure.lang
         #region equiv, lt, lte, gt, gte
 
 
-        public static bool equiv(object x, object y) { return ops(x).combine(ops(y)).equiv(x, y); }
+        public static bool equiv(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx == ly;
+            if (x is double dx && y is double dy) return dx == dy;
+            return ops(x).combine(ops(y)).equiv(x, y);
+        }
 
 
         public static bool equiv(double x, double y) { return x == y; }
@@ -1474,7 +1526,12 @@ namespace clojure.lang
 
 
 
-        public static bool lt(object x, object y) { return ops(x).combine(ops(y)).lt(x, y); }
+        public static bool lt(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx < ly;
+            if (x is double dx && y is double dy) return dx < dy;
+            return ops(x).combine(ops(y)).lt(x, y);
+        }
 
 
         public static bool lt(double x, double y) { return x < y; }
@@ -1527,7 +1584,12 @@ namespace clojure.lang
 
 
 
-        public static bool lte(object x, object y) { return ops(x).combine(ops(y)).lte(x, y); }
+        public static bool lte(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx <= ly;
+            if (x is double dx && y is double dy) return dx <= dy;
+            return ops(x).combine(ops(y)).lte(x, y);
+        }
 
 
         public static bool lte(double x, double y) { return x <= y; }
@@ -1580,7 +1642,12 @@ namespace clojure.lang
 
 
 
-        public static bool gt(object x, object y) { return ops(x).combine(ops(y)).lt(y, x); }
+        public static bool gt(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx > ly;
+            if (x is double dx && y is double dy) return dx > dy;
+            return ops(x).combine(ops(y)).lt(y, x);
+        }
 
 
         public static bool gt(double x, double y) { return x > y; }
@@ -1632,7 +1699,12 @@ namespace clojure.lang
 
 
 
-        public static bool gte(object x, object y) { return ops(x).combine(ops(y)).gte(x, y); }
+        public static bool gte(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx >= ly;
+            if (x is double dx && y is double dy) return dx >= dy;
+            return ops(x).combine(ops(y)).gte(x, y);
+        }
 
 
         public static bool gte(double x, double y) { return x >= y; }

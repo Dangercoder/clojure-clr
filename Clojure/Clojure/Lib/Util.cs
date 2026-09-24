@@ -65,6 +65,8 @@ namespace clojure.lang
         {
             if (k1 == k2)
                 return true;
+            if (k1 is long l1 && k2 is long l2)
+                return l1 == l2;
             if (k1 != null)
             {
                 if (IsNumeric(k1) && IsNumeric(k2))
@@ -262,6 +264,8 @@ namespace clojure.lang
         {
             if (k1 == k2)
                 return 0;
+            if (k1 is long l1 && k2 is long l2)
+                return l1 < l2 ? -1 : l1 > l2 ? 1 : 0;
             if (k1 != null)
             {
                 if (k2 == null)
@@ -693,7 +697,11 @@ namespace clojure.lang
 
         public static bool IsNumeric(object o)
         {
-            return o != null && IsNumeric(o.GetType());
+            // The common answers without Type.GetTypeCode. (Enums count as numeric through
+            // their underlying type, so the general check stays for everything else.)
+            if (o is long || o is double) return true;
+            if (o is null || o is Keyword || o is string || o is Symbol) return false;
+            return IsNumeric(o.GetType());
         }
 
         public static int BitCount(int x)

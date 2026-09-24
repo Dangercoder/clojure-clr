@@ -110,6 +110,34 @@ namespace clojure.lang
         // Thus, I'm thinking boxing bools is less expensive than a static field lookup.
 
         //public static readonly Object T = true;//Keyword.intern(Symbol.intern(null, "t"));
+
+        // Shared boxes, as the JVM's Boolean.TRUE/FALSE and Integer/Long caches: returning a
+        // bool or a small number as an object allocates nothing. Equality is unchanged;
+        // identical? becomes true for equal small numbers and booleans, as on the JVM.
+        public static readonly object TrueBox = true;
+        public static readonly object FalseBox = false;
+
+        const int BoxCacheLow = -128, BoxCacheHigh = 1023;
+        static readonly object[] IntBoxes = MakeIntBoxes();
+        static object[] MakeIntBoxes()
+        {
+            var boxes = new object[BoxCacheHigh - BoxCacheLow + 1];
+            for (int i = 0; i < boxes.Length; i++) boxes[i] = i + BoxCacheLow;
+            return boxes;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static object box(bool x) => x ? TrueBox : FalseBox;
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static object box(int x)
+        {
+            uint i = unchecked((uint)(x - BoxCacheLow));
+            return i < (uint)IntBoxes.Length ? IntBoxes[i] : x;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static object box(long x) => Numbers.num(x);
         //public static readonly Object F = false;//Keyword.intern(Symbol.intern(null, "t"));
 
         public static bool IsTrue(object o)
@@ -1027,28 +1055,28 @@ namespace clojure.lang
         {
             if (coll == null)
                 //return RT.F;
-                return false;
+                return FalseBox;
 
             if (coll is Associative assoc)
                 //return ((Associative)coll).containsKey(key) ? RT.T : RT.F;
-                return assoc.containsKey(key);
+                return box(assoc.containsKey(key));
 
             if (coll is IPersistentSet set)
                 //return ((IPersistentSet)coll).contains(key) ? RT.T : RT.F;
-                return set.contains(key);
+                return box(set.contains(key));
 
 
             if (coll is IDictionary m)
             {
                 //return m.Contains(key) ? RT.T : RT.F;
-                return key != null && m.Contains(key);
+                return box(key != null && m.Contains(key));
             }
 
             // TODO: Make this work for ISet<T> no matter the T
             if (coll is ISet<object> iso)
             {
                 // return  iso.Contains(key) ? RT.T : RT.F;
-                return iso.Contains(key);
+                return box(iso.Contains(key));
             }
 
             if (Util.IsNumeric(key) && (coll is String || coll.GetType().IsArray))
@@ -3507,9 +3535,70 @@ namespace clojure.lang
             #endregion
         }
 
+        /// <summary>Sorts in place with fn as comparator. object[] (what sort passes) gets a
+        /// stable sort, as clojure.core/sort documents and the JVM's TimSort provides:
+        /// binary insertion sort for small arrays, bottom-up merge sort above that, skipping
+        /// merges whose halves are already in order. Other arrays keep Array.Sort.</summary>
         public static void SortArray(Array a, IFn fn)
         {
-            Array.Sort(a, new ComparerConverter(fn));
+            if (a is object[] items)
+                StableSort(items, new ComparerConverter(fn));
+            else
+                Array.Sort(a, new ComparerConverter(fn));
+        }
+
+        const int InsertionSortRun = 32;
+
+        static void StableSort(object[] a, IComparer cmp)
+        {
+            int n = a.Length;
+            if (n < 2) return;
+            for (int lo = 0; lo < n; lo += InsertionSortRun)
+                BinaryInsertionSort(a, lo, Math.Min(lo + InsertionSortRun, n), cmp);
+            if (n <= InsertionSortRun) return;
+
+            object[] src = a, dst = new object[n];
+            for (int width = InsertionSortRun; width < n; width *= 2)
+            {
+                for (int lo = 0; lo < n; lo += 2 * width)
+                {
+                    int mid = Math.Min(lo + width, n), hi = Math.Min(lo + 2 * width, n);
+                    if (mid >= hi || cmp.Compare(src[mid - 1], src[mid]) <= 0)
+                        Array.Copy(src, lo, dst, lo, hi - lo); // one run, or already in order
+                    else
+                        Merge(src, dst, lo, mid, hi, cmp);
+                }
+                (src, dst) = (dst, src);
+            }
+            if (!ReferenceEquals(src, a)) Array.Copy(src, a, n);
+        }
+
+        static void BinaryInsertionSort(object[] a, int lo, int hi, IComparer cmp)
+        {
+            for (int i = lo + 1; i < hi; i++)
+            {
+                object x = a[i];
+                int left = lo, right = i;
+                while (left < right) // first position whose element is greater than x: stable
+                {
+                    int m = (left + right) >>> 1;
+                    if (cmp.Compare(x, a[m]) < 0) right = m; else left = m + 1;
+                }
+                if (left < i)
+                {
+                    Array.Copy(a, left, a, left + 1, i - left);
+                    a[left] = x;
+                }
+            }
+        }
+
+        static void Merge(object[] src, object[] dst, int lo, int mid, int hi, IComparer cmp)
+        {
+            int i = lo, j = mid, k = lo;
+            while (i < mid && j < hi)
+                dst[k++] = cmp.Compare(src[j], src[i]) < 0 ? src[j++] : src[i++]; // ties take the left: stable
+            while (i < mid) dst[k++] = src[i++];
+            while (j < hi) dst[k++] = src[j++];
         }
 
 

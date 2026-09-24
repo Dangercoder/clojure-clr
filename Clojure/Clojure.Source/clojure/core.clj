@@ -3132,8 +3132,10 @@
    :static true}
   ([keyfn coll]
    (sort-by keyfn compare coll))
-  ([keyfn ^IComparable comp coll] 
-   (sort (fn [x y] (. comp (Compare (keyfn x) (keyfn y)))) coll)))
+  ([keyfn comp coll]
+   (if (instance? System.Collections.IComparer comp)
+     (sort (fn [x y] (.Compare ^System.Collections.IComparer comp (keyfn x) (keyfn y))) coll)
+     (sort (fn [x y] (. comp (Compare (keyfn x) (keyfn y)))) coll))))   ;;; any other object with a Compare method, as before
 
 (defn dorun
   "When lazy sequences are produced via functions that have side

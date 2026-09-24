@@ -390,8 +390,7 @@ namespace clojure.lang.CljCompiler.Ast
                 GenContext.EmitDebugInfo(baseIlg, SpanMap);
 
                 regIlg.Emit(OpCodes.Call, baseMB);
-                if (ReturnType.IsValueType)
-                    regIlg.Emit(OpCodes.Box, ReturnType);
+                HostExpr.EmitBox(regIlg, ReturnType);
                 regIlg.Emit(OpCodes.Ret);
             }
 
@@ -472,8 +471,7 @@ namespace clojure.lang.CljCompiler.Ast
                 HostExpr.EmitUnboxArg(fn, regIlg, _argTypes[i]);
             }
             regIlg.Emit(OpCodes.Call, baseMB);
-            if (ReturnType.IsValueType)
-                regIlg.Emit(OpCodes.Box, ReturnType);
+            HostExpr.EmitBox(regIlg, ReturnType);
             regIlg.Emit(OpCodes.Ret);
         }
 

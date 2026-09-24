@@ -375,6 +375,7 @@ namespace clojure.lang
         public static double add(double x, double y) { return x + y; }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long add(long x, long y)
         {
             long ret = x + y;
@@ -653,6 +654,7 @@ namespace clojure.lang
 
         public static double minus(double x, double y) { return x - y; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long minus(long x, long y)
         {
             long ret = x - y;
@@ -921,6 +923,7 @@ namespace clojure.lang
         public static double multiply(double x, double y) { return x * y; }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long multiply(long x, long y)
         {
             if (x == Int64.MinValue && y < 0)
@@ -1292,6 +1295,7 @@ namespace clojure.lang
 
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long inc(long x)
         {
             if (x == Int64.MaxValue)
@@ -1350,6 +1354,7 @@ namespace clojure.lang
         public static double dec(double x) { return x - 1; }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long dec(long x)
         {
             if (x == Int64.MinValue)
@@ -2207,7 +2212,22 @@ namespace clojure.lang
         public static object num(double x) { return x; }
 
 
-        public static object num(long x) { return x; }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static object num(long x)
+        {
+            ulong i = unchecked((ulong)(x - LongBoxLow));
+            return i < (ulong)LongBoxes.Length ? LongBoxes[i] : x;
+        }
+
+        // Boxed longs from -128 to 1023, shared (see RT.box).
+        const long LongBoxLow = -128;
+        static readonly object[] LongBoxes = MakeLongBoxes();
+        static object[] MakeLongBoxes()
+        {
+            var boxes = new object[1024 + 128];
+            for (int i = 0; i < boxes.Length; i++) boxes[i] = i + LongBoxLow;
+            return boxes;
+        }
 
 
         public static object num(ulong x) { return x; }

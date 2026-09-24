@@ -43,8 +43,7 @@ namespace clojure.lang.CljCompiler.Ast
 
         public override void Emit(RHC rhc, ObjExpr objx, CljILGen ilg)
         {
-            ilg.EmitBoolean(_val);
-            ilg.Emit(OpCodes.Box, typeof(bool));
+            ilg.EmitFieldGet(typeof(RT).GetField(_val ? "TrueBox" : "FalseBox"));
             if (rhc == RHC.Statement)
                 ilg.Emit(OpCodes.Pop);
         }

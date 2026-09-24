@@ -293,10 +293,17 @@ namespace clojure.lang
         // virtual calls and ConvertToLong/ConvertToDouble per argument). They call the same
         // overflow-checked long overloads, so results and exceptions are unchanged.
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool isZero(object x)
         {
             if (x is long l) return l == 0;
             if (x is double d) return d == 0;
+            return isZeroSlow(x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool isZeroSlow(object x)
+        {
             return ops(x).isZero(x);
         }
 
@@ -316,10 +323,17 @@ namespace clojure.lang
 
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool isPos(object x)
         {
             if (x is long l) return l > 0;
             if (x is double d) return d > 0;
+            return isPosSlow(x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool isPosSlow(object x)
+        {
             return ops(x).isPos(x);
         }
 
@@ -338,10 +352,17 @@ namespace clojure.lang
 
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool isNeg(object x)
         {
             if (x is long l) return l < 0;
             if (x is double d) return d < 0;
+            return isNegSlow(x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool isNegSlow(object x)
+        {
             return ops(x).isNeg(x);
         }
 
@@ -364,10 +385,17 @@ namespace clojure.lang
         #region add, addP, unchecked_add
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static object add(object x, object y)
         {
             if (x is long lx && y is long ly) return num(add(lx, ly));
             if (x is double dx && y is double dy) return dx + dy;
+            return addSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static object addSlow(object x, object y)
+        {
             return ops(x).combine(ops(y)).add(x, y);
         }
 
@@ -630,12 +658,19 @@ namespace clojure.lang
         public static decimal minusP(decimal x) { return -x; }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static object minus(object x, object y)
         {
             // long.MinValue keeps the general path: it computes x + (-y), and negating
             // MinValue throws even where x - y would not.
             if (x is long lx && y is long ly && ly != long.MinValue) return num(minus(lx, ly));
             if (x is double dx && y is double dy) return dx - dy;
+            return minusSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static object minusSlow(object x, object y)
+        {
             Ops yops = ops(y);
             Ops xyops = ops(x).combine(yops);
 
@@ -912,10 +947,17 @@ namespace clojure.lang
         #region multiply, multiplyP, unchecked_multiply
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static object multiply(object x, object y)
         {
             if (x is long lx && y is long ly) return num(multiply(lx, ly));
             if (x is double dx && y is double dy) return dx * dy;
+            return multiplySlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static object multiplySlow(object x, object y)
+        {
             return ops(x).combine(ops(y)).multiply(x, y);
         }
 
@@ -1283,10 +1325,17 @@ namespace clojure.lang
         #region inc, incP, unchecked_inc, dec, decP, unchecked_dec
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static object inc(object x)
         {
             if (x is long l) return num(inc(l));
             if (x is double d) return d + 1;
+            return incSlow(x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static object incSlow(object x)
+        {
             return ops(x).inc(x);
         }
 
@@ -1343,10 +1392,17 @@ namespace clojure.lang
         }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static object dec(object x)
         {
             if (x is long l) return num(dec(l));
             if (x is double d) return d - 1;
+            return decSlow(x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static object decSlow(object x)
+        {
             return ops(x).dec(x);
         }
 
@@ -1446,19 +1502,33 @@ namespace clojure.lang
         #region equal, compare
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool equal(object x, object y)
         {
             if (x is long lx && y is long ly) return lx == ly;
             if (x is double dx && y is double dy) return dx == dy;
+            return equalSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool equalSlow(object x, object y)
+        {
             return category(x) == category(y)
                 && ops(x).combine(ops(y)).equiv(x, y);
         }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int compare(object x, object y)
         {
             if (x is long lx && y is long ly) return lx < ly ? -1 : lx > ly ? 1 : 0;
             if (x is double dx && y is double dy) return dx < dy ? -1 : dy < dx ? 1 : 0;
+            return compareSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static int compareSlow(object x, object y)
+        {
             Ops xyops = ops(x).combine(ops(y));
             if (xyops.lt(x, y))
                 return -1;
@@ -1473,10 +1543,17 @@ namespace clojure.lang
         #region equiv, lt, lte, gt, gte
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool equiv(object x, object y)
         {
             if (x is long lx && y is long ly) return lx == ly;
             if (x is double dx && y is double dy) return dx == dy;
+            return equivSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool equivSlow(object x, object y)
+        {
             return ops(x).combine(ops(y)).equiv(x, y);
         }
 
@@ -1531,10 +1608,17 @@ namespace clojure.lang
 
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool lt(object x, object y)
         {
             if (x is long lx && y is long ly) return lx < ly;
             if (x is double dx && y is double dy) return dx < dy;
+            return ltSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool ltSlow(object x, object y)
+        {
             return ops(x).combine(ops(y)).lt(x, y);
         }
 
@@ -1589,10 +1673,17 @@ namespace clojure.lang
 
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool lte(object x, object y)
         {
             if (x is long lx && y is long ly) return lx <= ly;
             if (x is double dx && y is double dy) return dx <= dy;
+            return lteSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool lteSlow(object x, object y)
+        {
             return ops(x).combine(ops(y)).lte(x, y);
         }
 
@@ -1647,10 +1738,17 @@ namespace clojure.lang
 
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool gt(object x, object y)
         {
             if (x is long lx && y is long ly) return lx > ly;
             if (x is double dx && y is double dy) return dx > dy;
+            return gtSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool gtSlow(object x, object y)
+        {
             return ops(x).combine(ops(y)).lt(y, x);
         }
 
@@ -1704,10 +1802,17 @@ namespace clojure.lang
 
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool gte(object x, object y)
         {
             if (x is long lx && y is long ly) return lx >= ly;
             if (x is double dx && y is double dy) return dx >= dy;
+            return gteSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool gteSlow(object x, object y)
+        {
             return ops(x).combine(ops(y)).gte(x, y);
         }
 

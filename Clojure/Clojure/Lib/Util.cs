@@ -69,12 +69,19 @@ namespace clojure.lang
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static public bool equiv(object k1, object k2)
         {
             if (k1 == k2)
                 return true;
             if (k1 is long l1 && k2 is long l2)
                 return l1 == l2;
+            return equivSlow(k1, k2);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool equivSlow(object k1, object k2)
+        {
             // Sealed types first: the interface checks below are slow on .NET for strings and
             // boxed numbers, which implement dozens of generic-math and span interfaces.
             if (k1 is Keyword kw1 && k2 is Keyword)
@@ -274,12 +281,19 @@ namespace clojure.lang
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int compare(object k1, object k2)
         {
             if (k1 == k2)
                 return 0;
             if (k1 is long l1 && k2 is long l2)
                 return l1 < l2 ? -1 : l1 > l2 ? 1 : 0;
+            return compareSlow(k1, k2);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static int compareSlow(object k1, object k2)
+        {
             if (k1 != null)
             {
                 if (k2 == null)

@@ -34,6 +34,14 @@ namespace clojure.lang
             if (o == null)
                 return 0;
 
+            // Common sealed types before the IHashEq check (see equiv); same results.
+            if (o is Keyword kw)
+                return dohasheq(kw);
+            if (o is string str)
+                return Murmur3.HashString(str);
+            if (o is long)
+                return Numbers.hasheq(o);
+
             if (o is IHashEq ihe)
                 return dohasheq(ihe);
 
@@ -67,6 +75,12 @@ namespace clojure.lang
                 return true;
             if (k1 is long l1 && k2 is long l2)
                 return l1 == l2;
+            // Sealed types first: the interface checks below are slow on .NET for strings and
+            // boxed numbers, which implement dozens of generic-math and span interfaces.
+            if (k1 is Keyword kw1 && k2 is Keyword)
+                return kw1.Equals(k2);
+            if (k1 is string s1 && k2 is string s2)
+                return s1.Equals(s2);
             if (k1 != null)
             {
                 if (IsNumeric(k1) && IsNumeric(k2))
@@ -290,6 +304,7 @@ namespace clojure.lang
 
         public static int ConvertToInt(object o)
         {
+            if (o is int same) return same;
             switch (Type.GetTypeCode(o.GetType()))
             {
                 case TypeCode.Byte:
@@ -356,6 +371,7 @@ namespace clojure.lang
 
         public static long ConvertToLong(object o)
         {
+            if (o is long same) return same;
             switch (Type.GetTypeCode(o.GetType()))
             {
                 case TypeCode.Byte:
@@ -594,6 +610,7 @@ namespace clojure.lang
 
         public static double ConvertToDouble(object o)
         {
+            if (o is double same) return same;
             switch (Type.GetTypeCode(o.GetType()))
             {
                 case TypeCode.Byte:

@@ -3529,7 +3529,8 @@ namespace clojure.lang
 
             public int Compare(object x, object y)
             {
-                return Util.ConvertToInt(_fn.invoke(x, y));
+                object r = _fn.invoke(x, y);
+                return r is int i ? i : Util.ConvertToInt(r); // compare returns an int
             }
 
             #endregion

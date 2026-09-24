@@ -344,7 +344,7 @@ namespace clojure.lang
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
         static private Node doAssoc(int level, Node node, int i, object val)
         {
-            Node ret = new(node.Edit, (object[])node.Array.Clone());
+            Node ret = new(node.Edit, ArrayUtil.CopyOf(node.Array));
             if (level == 0)
                 ret.Array[i & 0x01f] = val;
             else
@@ -401,7 +401,7 @@ namespace clojure.lang
             // else alloc new path
             // return nodeToInsert placed in copy of parent
             int subidx = ((_cnt - 1) >> level) & 0x01f;
-            Node ret = new(parent.Edit, (object[])parent.Array.Clone());
+            Node ret = new(parent.Edit, ArrayUtil.CopyOf(parent.Array));
             Node nodeToInsert;
 
             if (level == 5)
@@ -496,7 +496,7 @@ namespace clojure.lang
                     return null;
                 else
                 {
-                    Node ret = new(_root.Edit, (object[])node.Array.Clone());
+                    Node ret = new(_root.Edit, ArrayUtil.CopyOf(node.Array));
                     ret.Array[subidx] = newchild;
                     return ret;
                 }
@@ -505,7 +505,7 @@ namespace clojure.lang
                 return null;
             else
             {
-                Node ret = new(_root.Edit, (object[])node.Array.Clone());
+                Node ret = new(_root.Edit, ArrayUtil.CopyOf(node.Array));
                 ret.Array[subidx] = null;
                 return ret;
             }
@@ -829,12 +829,12 @@ namespace clojure.lang
             {
                 if (node.Edit == _root.Edit)
                     return node;
-                return new Node(_root.Edit, (object[])node.Array.Clone());
+                return new Node(_root.Edit, ArrayUtil.CopyOf(node.Array));
             }
 
             static Node EditableRoot(Node node)
             {
-                return new Node(new AtomicReference<Thread>(Thread.CurrentThread), (object[])node.Array.Clone());
+                return new Node(new AtomicReference<Thread>(Thread.CurrentThread), ArrayUtil.CopyOf(node.Array));
             }
 
             static object[] EditableTail(object[] tl)
@@ -851,7 +851,7 @@ namespace clojure.lang
                 // else alloc new path
                 //return  nodeToInsert placed in copy of parent
                 int subidx = ((_cnt - 1) >> level) & 0x01f;
-                Node ret = new(parent.Edit, (object[])parent.Array.Clone());
+                Node ret = new(parent.Edit, ArrayUtil.CopyOf(parent.Array));
                 Node nodeToInsert;
                 if (level == 5)
                 {
@@ -944,7 +944,7 @@ namespace clojure.lang
             Node doAssoc(int level, Node node, int i, Object val)
             {
                 node = EnsureEditable(node);
-                Node ret = new(node.Edit, (object[])node.Array.Clone());
+                Node ret = new(node.Edit, ArrayUtil.CopyOf(node.Array));
                 if (level == 0)
                 {
                     ret.Array[i & 0x01f] = val;

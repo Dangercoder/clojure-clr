@@ -18,6 +18,15 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading;
 
+// Realizing a LazySeq/Delay takes a reentrant lock. System.Threading.Lock (.NET 9+) is the
+// runtime's lightweight lock; older frameworks use Monitor on a plain object. Both replace
+// a ReaderWriterLockSlim per instance, of which only the write side was ever used.
+#if NET9_0_OR_GREATER
+using RealizeLock = System.Threading.Lock;
+#else
+using RealizeLock = System.Object;
+#endif
+
 namespace clojure.lang
 {
     [Serializable]
@@ -29,7 +38,7 @@ namespace clojure.lang
         private IFn _fn;
         private object _sv;
         private ISeq _s;
-        private volatile ReaderWriterLockSlim _lock;   // JVM added the volatile.  Do we really need this?
+        private volatile RealizeLock _lock;   // JVM added the volatile.  Do we really need this?
 
         #endregion
 
@@ -38,7 +47,7 @@ namespace clojure.lang
         public LazySeq(IFn fn)
         {
             _fn = fn;
-            _lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+            _lock = new RealizeLock();
         }
 
         private LazySeq(IPersistentMap meta, ISeq seq)
@@ -87,8 +96,7 @@ namespace clojure.lang
             var lk = _lock;
             if (lk != null)
             {
-                lk.EnterWriteLock();
-                try
+                lock (lk)
                 {
                     //must re-examine under lock
                     if (_lock is not null)
@@ -97,10 +105,6 @@ namespace clojure.lang
                         Force();
                         return _sv;
                     }
-                }
-                finally
-                {
-                    lk.ExitWriteLock();
                 }
             }
 
@@ -120,8 +124,7 @@ namespace clojure.lang
             var lk = _lock;
             if (lk != null)
             {
-                lk.EnterWriteLock();
-                try
+                lock (lk)
                 {
                     // must re-examine under lock
                     if (_lock != null)
@@ -134,10 +137,6 @@ namespace clojure.lang
                         _s = RT.seq(ls);
                         _lock = null;
                     }
-                }
-                finally
-                {
-                    lk.ExitWriteLock();
                 }
             }
         }

@@ -2422,6 +2422,15 @@ namespace clojure.lang
             //  return ((Collection)coll).toArray();
             //  TODO: List has a toArray -- generic -- need type. 
 
+            // Vectors know their size: one exact array, as the JVM's APersistentVector.toArray.
+            if (coll is IPersistentVector v)
+            {
+                object[] items = new object[v.count()];
+                for (int i = 0; i < items.Length; i++)
+                    items[i] = v.nth(i);
+                return items;
+            }
+
             if (coll is IEnumerable ie)
                 return IEnumToArray(ie);
 

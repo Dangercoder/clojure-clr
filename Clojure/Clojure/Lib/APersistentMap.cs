@@ -170,6 +170,8 @@ namespace clojure.lang
         /// In Java Rev 1215, Added equiv.  Same as the definition in Equals, as in they took out the hashcode comparison.
         /// Different, as in Util.Equal above became Util.equals. and below it is Util.equiv.
         /// </remarks> 
+        static readonly object EquivNotFound = new();
+
         public virtual bool equiv(object o)
         {
             //if(!(obj instanceof Map))
@@ -190,6 +192,20 @@ namespace clojure.lang
 
             if (d.Count != this.Count)
                 return false;
+
+            // Between Clojure maps: walk keys and values without seq nodes or MapEntry objects,
+            // and look each key up once.
+            if (IsEntryEnumerable(this) && o is ILookup other && o is IPersistentMap)
+            {
+                IEnumerator keys = ((IMapEnumerable)this).keyEnumerator(), vals = ((IMapEnumerable)this).valEnumerator();
+                while (keys.MoveNext() && vals.MoveNext())
+                {
+                    object v = other.valAt(keys.Current, EquivNotFound);
+                    if (ReferenceEquals(v, EquivNotFound) || !Util.equiv(vals.Current, v))
+                        return false;
+                }
+                return true;
+            }
 
             for (ISeq s = seq(); s != null; s = s.next())
             {
@@ -454,9 +470,29 @@ namespace clojure.lang
             if (cached == 0)
             {
                 //_hasheq = mapHasheq(this);
-                _hasheq = cached = Murmur3.HashUnordered(this);
+                _hasheq = cached = IsEntryEnumerable(this) ? HasheqFromEntries((IMapEnumerable)this) : Murmur3.HashUnordered(this);
             }
             return cached;
+        }
+
+        static bool IsEntryEnumerable(object m) => m is PersistentArrayMap || m is PersistentHashMap;
+
+        /// <summary>Murmur3.HashUnordered over the map's entries without creating MapEntry objects:
+        /// each entry hashes as the 2-element vector [k v] does (APersistentVector.hasheq).</summary>
+        static int HasheqFromEntries(IMapEnumerable m)
+        {
+            uint sum = 0;
+            int n = 0;
+            IEnumerator keys = m.keyEnumerator(), vals = m.valEnumerator();
+            while (keys.MoveNext() && vals.MoveNext())
+            {
+                int entry = 1;
+                entry = unchecked(31 * entry + Util.hasheq(keys.Current));
+                entry = unchecked(31 * entry + Util.hasheq(vals.Current));
+                sum = unchecked(sum + (uint)Murmur3.MixCollHash(entry, 2));
+                n++;
+            }
+            return Murmur3.MixCollHash(unchecked((int)sum), n);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]

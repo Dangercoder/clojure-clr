@@ -151,13 +151,13 @@ namespace clojure.lang
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
         public static bool equiv(long x, object y)
         {
-            return equiv((object)x, y);
+            return equiv(Numbers.num(x), y);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
         public static bool equiv(object x, long y)
         {
-            return equiv(x, (object)y);
+            return equiv(x, Numbers.num(y));
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]

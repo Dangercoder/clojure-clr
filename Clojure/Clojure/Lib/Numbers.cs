@@ -442,10 +442,10 @@ namespace clojure.lang
         public static double add(ulong x, double y) { return x + y; }
 
 
-        public static object add(long x, Object y) { return add((Object)x, y); }
+        public static object add(long x, Object y) { return add(num(x), y); }
 
 
-        public static object add(Object x, long y) { return add(x, (Object)y); }
+        public static object add(Object x, long y) { return add(x, num(y)); }
 
 
         public static object add(ulong x, Object y) { return add((Object)x, y); }
@@ -456,10 +456,10 @@ namespace clojure.lang
         // Interesting problem mixing long/ulong -- what should the semantics be?
         // easiest is to punt.
 
-        public static object add(long x, ulong y) { return add((Object)x, (Object)y); }
+        public static object add(long x, ulong y) { return add(num(x), (Object)y); }
 
 
-        public static object add(ulong x, long y) { return add((Object)x, (Object)y); }
+        public static object add(ulong x, long y) { return add((Object)x, num(y)); }
 
 
 
@@ -474,7 +474,7 @@ namespace clojure.lang
         {
             long ret = x + y;
             if ((ret ^ x) < 0 && (ret ^ y) < 0)
-                return addP((object)x, (object)y);
+                return addP(num(x), num(y));
             return num(ret);
         }
 
@@ -515,10 +515,10 @@ namespace clojure.lang
         public static double addP(long x, double y) { return x + y; }
 
 
-        public static object addP(long x, Object y) { return addP((Object)x, y); }
+        public static object addP(long x, Object y) { return addP(num(x), y); }
 
 
-        public static object addP(Object x, long y) { return addP(x, (Object)y); }
+        public static object addP(Object x, long y) { return addP(x, num(y)); }
 
 
         public static object addP(ulong x, Object y) { return addP((Object)x, y); }
@@ -527,10 +527,10 @@ namespace clojure.lang
         public static object addP(Object x, ulong y) { return addP(x, (Object)y); }
 
 
-        public static object addP(long x, ulong y) { return addP((Object)x, (Object)y); }
+        public static object addP(long x, ulong y) { return addP(num(x), (Object)y); }
 
 
-        public static object addP(ulong x, long y) { return addP((Object)x, (Object)y); }
+        public static object addP(ulong x, long y) { return addP((Object)x, num(y)); }
 
 
 
@@ -579,11 +579,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_add(long x, object y) { return unchecked_add((Object)x, y); }
+        public static object unchecked_add(long x, object y) { return unchecked_add(num(x), y); }
 
 
 
-        public static object unchecked_add(object x, long y) { return unchecked_add(x, (Object)y); }
+        public static object unchecked_add(object x, long y) { return unchecked_add(x, num(y)); }
 
 
 
@@ -595,11 +595,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_add(long x, ulong y) { return unchecked_add((Object)x, (Object)y); }
+        public static object unchecked_add(long x, ulong y) { return unchecked_add(num(x), (Object)y); }
 
 
 
-        public static object unchecked_add(ulong x, long y) { return unchecked_add((Object)x, (Object)y); }
+        public static object unchecked_add(ulong x, long y) { return unchecked_add((Object)x, num(y)); }
 
         #endregion
 
@@ -728,10 +728,10 @@ namespace clojure.lang
         public static double minus(ulong x, double y) { return x - y; }
 
 
-        public static object minus(long x, Object y) { return minus((Object)x, y); }
+        public static object minus(long x, Object y) { return minus(num(x), y); }
 
 
-        public static object minus(Object x, long y) { return minus(x, (Object)y); }
+        public static object minus(Object x, long y) { return minus(x, num(y)); }
 
 
         public static object minus(ulong x, Object y) { return minus((Object)x, y); }
@@ -740,10 +740,10 @@ namespace clojure.lang
         public static object minus(Object x, ulong y) { return minus(x, (Object)y); }
 
 
-        public static object minus(long x, ulong y) { return minus((Object)x, (Object)y); }
+        public static object minus(long x, ulong y) { return minus(num(x), (Object)y); }
 
 
-        public static object minus(ulong x, long y) { return minus((Object)x, (Object)y); }
+        public static object minus(ulong x, long y) { return minus((Object)x, num(y)); }
 
 
 
@@ -777,7 +777,7 @@ namespace clojure.lang
         {
             long ret = x - y;
             if (((ret ^ x) < 0 && (ret ^ ~y) < 0))
-                return minusP((object)x, (object)y);
+                return minusP(num(x), num(y));
             return num(ret);
         }
 
@@ -819,10 +819,10 @@ namespace clojure.lang
         public static double minusP(ulong x, double y) { return x - y; }
 
 
-        public static object minusP(long x, Object y) { return minusP((Object)x, y); }
+        public static object minusP(long x, Object y) { return minusP(num(x), y); }
 
 
-        public static object minusP(Object x, long y) { return minusP(x, (Object)y); }
+        public static object minusP(Object x, long y) { return minusP(x, num(y)); }
 
 
         public static object minusP(ulong x, Object y) { return minusP((Object)x, y); }
@@ -831,10 +831,10 @@ namespace clojure.lang
         public static object minusP(Object x, ulong y) { return minusP(x, (Object)y); }
 
 
-        public static object minusP(long x, ulong y) { return minusP((Object)x, (Object)y); }
+        public static object minusP(long x, ulong y) { return minusP(num(x), (Object)y); }
 
 
-        public static object minusP(ulong x, long y) { return minusP((Object)x, (Object)y); }
+        public static object minusP(ulong x, long y) { return minusP((Object)x, num(y)); }
 
 
 
@@ -920,11 +920,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_minus(long x, object y) { return unchecked_minus((Object)x, y); }
+        public static object unchecked_minus(long x, object y) { return unchecked_minus(num(x), y); }
 
 
 
-        public static object unchecked_minus(object x, long y) { return unchecked_minus(x, (Object)y); }
+        public static object unchecked_minus(object x, long y) { return unchecked_minus(x, num(y)); }
 
 
 
@@ -936,11 +936,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_minus(long x, ulong y) { return unchecked_minus((Object)x, (Object)y); }
+        public static object unchecked_minus(long x, ulong y) { return unchecked_minus(num(x), (Object)y); }
 
 
 
-        public static object unchecked_minus(ulong x, long y) { return unchecked_minus((Object)x, (Object)y); }
+        public static object unchecked_minus(ulong x, long y) { return unchecked_minus((Object)x, num(y)); }
 
         #endregion
 
@@ -1007,10 +1007,10 @@ namespace clojure.lang
         public static double multiply(ulong x, double y) { return x * y; }
 
 
-        public static object multiply(long x, Object y) { return multiply((Object)x, y); }
+        public static object multiply(long x, Object y) { return multiply(num(x), y); }
 
 
-        public static object multiply(Object x, long y) { return multiply(x, (Object)y); }
+        public static object multiply(Object x, long y) { return multiply(x, num(y)); }
 
 
         public static object multiply(ulong x, Object y) { return multiply((Object)x, y); }
@@ -1019,10 +1019,10 @@ namespace clojure.lang
         public static object multiply(Object x, ulong y) { return multiply(x, (Object)y); }
 
 
-        public static object multiply(long x, ulong y) { return multiply((Object)x, (Object)y); }
+        public static object multiply(long x, ulong y) { return multiply(num(x), (Object)y); }
 
 
-        public static object multiply(ulong x, long y) { return multiply((Object)x, (Object)y); }
+        public static object multiply(ulong x, long y) { return multiply((Object)x, num(y)); }
 
 
 
@@ -1036,10 +1036,10 @@ namespace clojure.lang
         public static object multiplyP(long x, long y)
         {
             if (x == Int64.MinValue && y < 0)
-                return multiplyP((object)x, (object)y);
+                return multiplyP(num(x), num(y));
             long ret = x * y;
             if (y != 0 && ret / y != x)
-                return multiplyP((object)x, (object)y);
+                return multiplyP(num(x), num(y));
             return num(ret);
         }
 
@@ -1084,10 +1084,10 @@ namespace clojure.lang
         public static double multiplyP(ulong x, double y) { return x * y; }
 
 
-        public static object multiplyP(long x, Object y) { return multiplyP((Object)x, y); }
+        public static object multiplyP(long x, Object y) { return multiplyP(num(x), y); }
 
 
-        public static object multiplyP(Object x, long y) { return multiplyP(x, (Object)y); }
+        public static object multiplyP(Object x, long y) { return multiplyP(x, num(y)); }
 
 
         public static object multiplyP(ulong x, Object y) { return multiplyP((Object)x, y); }
@@ -1096,10 +1096,10 @@ namespace clojure.lang
         public static object multiplyP(Object x, ulong y) { return multiplyP(x, (Object)y); }
 
 
-        public static object multiplyP(long x, ulong y) { return multiplyP((Object)x, (Object)y); }
+        public static object multiplyP(long x, ulong y) { return multiplyP(num(x), (Object)y); }
 
 
-        public static object multiplyP(ulong x, long y) { return multiplyP((Object)x, (Object)y); }
+        public static object multiplyP(ulong x, long y) { return multiplyP((Object)x, num(y)); }
 
 
 
@@ -1149,11 +1149,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_multiply(long x, object y) { return unchecked_multiply((Object)x, y); }
+        public static object unchecked_multiply(long x, object y) { return unchecked_multiply(num(x), y); }
 
 
 
-        public static object unchecked_multiply(object x, long y) { return unchecked_multiply(x, (Object)y); }
+        public static object unchecked_multiply(object x, long y) { return unchecked_multiply(x, num(y)); }
 
 
 
@@ -1165,11 +1165,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_multiply(long x, ulong y) { return unchecked_multiply((Object)x, (Object)y); }
+        public static object unchecked_multiply(long x, ulong y) { return unchecked_multiply(num(x), (Object)y); }
 
 
 
-        public static object unchecked_multiply(ulong x, long y) { return unchecked_multiply((Object)x, (Object)y); }
+        public static object unchecked_multiply(ulong x, long y) { return unchecked_multiply((Object)x, num(y)); }
 
         #endregion
 
@@ -1193,7 +1193,7 @@ namespace clojure.lang
         public static double divide(double x, double y) { return x / y; }
 
 
-        public static object divide(long x, long y) { return divide((object)x, (object)y); }
+        public static object divide(long x, long y) { return divide(num(x), num(y)); }
 
 
         public static double divide(double x, Object y) { return x / Util.ConvertToDouble(y); }
@@ -1208,10 +1208,10 @@ namespace clojure.lang
         public static double divide(long x, double y) { return x / y; }
 
 
-        public static object divide(long x, Object y) { return divide((Object)x, y); }
+        public static object divide(long x, Object y) { return divide(num(x), y); }
 
 
-        public static object divide(Object x, long y) { return divide(x, (Object)y); }
+        public static object divide(Object x, long y) { return divide(x, num(y)); }
 
 
         // missing divide: uu du ud lu ul uo ou
@@ -1259,10 +1259,10 @@ namespace clojure.lang
         public static double quotient(long x, double y) { return quotient((double)x, y); }
 
 
-        public static object quotient(long x, Object y) { return quotient((Object)x, y); }
+        public static object quotient(long x, Object y) { return quotient(num(x), y); }
 
 
-        public static object quotient(Object x, long y) { return quotient(x, (Object)y); }
+        public static object quotient(Object x, long y) { return quotient(x, num(y)); }
 
 
         // missing divide:  du ud lu ul uo ou
@@ -1313,10 +1313,10 @@ namespace clojure.lang
         public static double remainder(long x, double y) { return remainder((double)x, y); }
 
 
-        public static object remainder(long x, Object y) { return remainder((Object)x, y); }
+        public static object remainder(long x, Object y) { return remainder(num(x), y); }
 
 
-        public static object remainder(Object x, long y) { return remainder(x, (Object)y); }
+        public static object remainder(Object x, long y) { return remainder(x, num(y)); }
 
         // missing remainder:  du ud lu ul uo ou
 
@@ -1373,7 +1373,7 @@ namespace clojure.lang
         public static object incP(long x)
         {
             if (x == Int64.MaxValue)
-                return BIGINT_OPS.inc((object)x);
+                return BIGINT_OPS.inc(num(x));
             return num(x + 1);
         }
 
@@ -1439,7 +1439,7 @@ namespace clojure.lang
         public static object decP(long x)
         {
             if (x == Int64.MinValue)
-                return BIGINT_OPS.dec((object)x);
+                return BIGINT_OPS.dec(num(x));
             return num(x - 1);
         }
 
@@ -1588,10 +1588,10 @@ namespace clojure.lang
         public static bool equiv(ulong x, double y) { return x == y; }
 
 
-        public static bool equiv(long x, Object y) { return equiv((Object)x, y); }
+        public static bool equiv(long x, Object y) { return equiv(num(x), y); }
 
 
-        public static bool equiv(Object x, long y) { return equiv(x, (Object)y); }
+        public static bool equiv(Object x, long y) { return equiv(x, num(y)); }
 
 
         public static bool equiv(ulong x, Object y) { return equiv((Object)x, y); }
@@ -1600,10 +1600,10 @@ namespace clojure.lang
         public static bool equiv(Object x, ulong y) { return equiv(x, (Object)y); }
 
 
-        public static bool equiv(long x, ulong y) { return equiv((Object)x, (Object)y); }
+        public static bool equiv(long x, ulong y) { return equiv(num(x), (Object)y); }
 
 
-        public static bool equiv(ulong x, long y) { return equiv((Object)x, (Object)y); }
+        public static bool equiv(ulong x, long y) { return equiv((Object)x, num(y)); }
 
 
 
@@ -1653,10 +1653,10 @@ namespace clojure.lang
         public static bool lt(ulong x, double y) { return x < y; }
 
 
-        public static bool lt(long x, Object y) { return lt((Object)x, y); }
+        public static bool lt(long x, Object y) { return lt(num(x), y); }
 
 
-        public static bool lt(Object x, long y) { return lt(x, (Object)y); }
+        public static bool lt(Object x, long y) { return lt(x, num(y)); }
 
 
         public static bool lt(ulong x, Object y) { return lt((Object)x, y); }
@@ -1665,10 +1665,10 @@ namespace clojure.lang
         public static bool lt(Object x, ulong y) { return lt(x, (Object)y); }
 
 
-        public static bool lt(long x, ulong y) { return lt((Object)x, (Object)y); }
+        public static bool lt(long x, ulong y) { return lt(num(x), (Object)y); }
 
 
-        public static bool lt(ulong x, long y) { return lt((Object)x, (Object)y); }
+        public static bool lt(ulong x, long y) { return lt((Object)x, num(y)); }
 
 
 
@@ -1718,10 +1718,10 @@ namespace clojure.lang
         public static bool lte(ulong x, double y) { return x <= y; }
 
 
-        public static bool lte(long x, Object y) { return lte((Object)x, y); }
+        public static bool lte(long x, Object y) { return lte(num(x), y); }
 
 
-        public static bool lte(Object x, long y) { return lte(x, (Object)y); }
+        public static bool lte(Object x, long y) { return lte(x, num(y)); }
 
 
         public static bool lte(ulong x, Object y) { return lte((Object)x, y); }
@@ -1730,10 +1730,10 @@ namespace clojure.lang
         public static bool lte(Object x, ulong y) { return lte(x, (Object)y); }
 
 
-        public static bool lte(long x, ulong y) { return lte((Object)x, (Object)y); }
+        public static bool lte(long x, ulong y) { return lte(num(x), (Object)y); }
 
 
-        public static bool lte(ulong x, long y) { return lte((Object)x, (Object)y); }
+        public static bool lte(ulong x, long y) { return lte((Object)x, num(y)); }
 
 
 
@@ -1783,10 +1783,10 @@ namespace clojure.lang
         public static bool gt(ulong x, double y) { return x > y; }
 
 
-        public static bool gt(long x, Object y) { return gt((Object)x, y); }
+        public static bool gt(long x, Object y) { return gt(num(x), y); }
 
 
-        public static bool gt(Object x, long y) { return gt(x, (Object)y); }
+        public static bool gt(Object x, long y) { return gt(x, num(y)); }
 
 
         public static bool gt(ulong x, Object y) { return gt((Object)x, y); }
@@ -1795,10 +1795,10 @@ namespace clojure.lang
         public static bool gt(Object x, ulong y) { return gt(x, (Object)y); }
 
 
-        public static bool gt(long x, ulong y) { return gt((Object)x, (Object)y); }
+        public static bool gt(long x, ulong y) { return gt(num(x), (Object)y); }
 
 
-        public static bool gt(ulong x, long y) { return gt((Object)x, (Object)y); }
+        public static bool gt(ulong x, long y) { return gt((Object)x, num(y)); }
 
 
 
@@ -1847,10 +1847,10 @@ namespace clojure.lang
         public static bool gte(ulong x, double y) { return x >= y; }
 
 
-        public static bool gte(long x, Object y) { return gte((Object)x, y); }
+        public static bool gte(long x, Object y) { return gte(num(x), y); }
 
 
-        public static bool gte(Object x, long y) { return gte(x, (Object)y); }
+        public static bool gte(Object x, long y) { return gte(x, num(y)); }
 
 
         public static bool gte(ulong x, Object y) { return gte((Object)x, y); }
@@ -1859,10 +1859,10 @@ namespace clojure.lang
         public static bool gte(Object x, ulong y) { return gte(x, (Object)y); }
 
 
-        public static bool gte(long x, ulong y) { return gte((Object)x, (Object)y); }
+        public static bool gte(long x, ulong y) { return gte(num(x), (Object)y); }
 
 
-        public static bool gte(ulong x, long y) { return gte((Object)x, (Object)y); }
+        public static bool gte(ulong x, long y) { return gte((Object)x, num(y)); }
 
         #endregion
 

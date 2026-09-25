@@ -300,7 +300,7 @@ namespace clojure.lang
             return notFound;
         }
 
-        object[] ArrayFor(int i)
+        internal object[] ArrayFor(int i)
         {
             if (i >= 0 && i < _cnt)
             {

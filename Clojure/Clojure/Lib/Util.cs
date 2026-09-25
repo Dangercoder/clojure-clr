@@ -76,6 +76,10 @@ namespace clojure.lang
                 return true;
             if (k1 is long l1 && k2 is long l2)
                 return l1 == l2;
+            if (k1 is Keyword kw1 && k2 is Keyword)
+                return kw1.Equals(k2);
+            if (k1 is string s1 && k2 is string s2)
+                return s1.Equals(s2);
             return equivSlow(k1, k2);
         }
 

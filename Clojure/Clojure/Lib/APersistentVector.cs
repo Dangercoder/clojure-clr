@@ -198,6 +198,24 @@ namespace clojure.lang
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
         static bool doEquiv(IPersistentVector v, object obj)
         {
+            // Two PersistentVectors: compare leaf arrays 32 elements at a time instead of an
+            // interface nth (a trie walk) per element on each side.
+            if (v is PersistentVector pv && obj is PersistentVector pw)
+            {
+                int n = pv.count();
+                if (n != pw.count())
+                    return false;
+                for (int i = 0; i < n; i += 32)
+                {
+                    object[] a = pv.ArrayFor(i), b = pw.ArrayFor(i);
+                    int m = Math.Min(32, n - i);
+                    for (int j = 0; j < m; j++)
+                        if (!Util.equiv(a[j], b[j]))
+                            return false;
+                }
+                return true;
+            }
+
             if (obj is IPersistentVector ipv)
             {
                 if (ipv.count() != v.count())

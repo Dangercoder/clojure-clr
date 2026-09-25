@@ -94,6 +94,11 @@ namespace clojure.lang
                 return s1.Equals(s2);
             if (k1 != null)
             {
+                // A collection on the left goes straight to pcequiv, as the chain below would
+                // (no numeric type is a collection); IsNumeric on it walks its Type. Boxed
+                // numbers skip this: interface checks on them are the slow case.
+                if (!(k1 is ValueType) && k1 is IPersistentCollection)
+                    return pcequiv(k1, k2);
                 if (IsNumeric(k1) && IsNumeric(k2))
                     return Numbers.equal(k1, k2);
 

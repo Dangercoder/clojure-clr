@@ -947,7 +947,11 @@ namespace clojure.lang.CljCompiler.Ast
             {
                 string fieldName = ConstantName(id);
                 Type fieldType = ConstantType(id);
-                FieldBuilder fb = TypeBuilder.DefineField(fieldName, fieldType, FieldAttributes.FamORAssem | FieldAttributes.Static);
+                // InitOnly: constants are stored only by the class initializer (directly or via
+                // the __static_ctor_helper_constants method it calls), and the JIT treats static
+                // readonly fields of an initialized class as constants: keyword and number
+                // constants fold into the code that uses them, as static finals do on the JVM.
+                FieldBuilder fb = TypeBuilder.DefineField(fieldName, fieldType, FieldAttributes.FamORAssem | FieldAttributes.Static | FieldAttributes.InitOnly);
                 ConstantFields[id] = fbr = new FieldBuilderRecord(fb);
             }
 

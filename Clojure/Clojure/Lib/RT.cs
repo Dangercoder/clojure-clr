@@ -3552,14 +3552,43 @@ namespace clojure.lang
         public static void SortArray(Array a, IFn fn)
         {
             if (a is object[] items)
-                StableSort(items, new ComparerConverter(fn));
+            {
+                // clojure.core/compare itself (what (sort coll) passes): call Util.compare
+                // directly instead of through IFn.invoke and a boxed int.
+                if (ReferenceEquals(fn, (_compareVar ??= var("clojure.core", "compare")).getRawRoot()))
+                    StableSort(items, new DefaultCompare());
+                else
+                    StableSort(items, new FnCompare(fn));
+            }
             else
                 Array.Sort(a, new ComparerConverter(fn));
         }
 
+        static Var _compareVar;
+
+        // Struct comparers: the sort below is specialized per comparer type, so the JIT
+        // calls (and can inline) Compare directly.
+        interface ISortComparer { int Compare(object x, object y); }
+
+        readonly struct DefaultCompare : ISortComparer
+        {
+            public int Compare(object x, object y) => Util.compare(x, y);
+        }
+
+        readonly struct FnCompare : ISortComparer
+        {
+            readonly IFn _fn;
+            public FnCompare(IFn fn) { _fn = fn; }
+            public int Compare(object x, object y)
+            {
+                object r = _fn.invoke(x, y);
+                return r is int i ? i : Util.ConvertToInt(r); // compare returns an int
+            }
+        }
+
         const int InsertionSortRun = 32;
 
-        static void StableSort(object[] a, IComparer cmp)
+        static void StableSort<TCmp>(object[] a, TCmp cmp) where TCmp : struct, ISortComparer
         {
             int n = a.Length;
             if (n < 2) return;
@@ -3583,7 +3612,7 @@ namespace clojure.lang
             if (!ReferenceEquals(src, a)) Array.Copy(src, a, n);
         }
 
-        static void BinaryInsertionSort(object[] a, int lo, int hi, IComparer cmp)
+        static void BinaryInsertionSort<TCmp>(object[] a, int lo, int hi, TCmp cmp) where TCmp : struct, ISortComparer
         {
             for (int i = lo + 1; i < hi; i++)
             {
@@ -3602,7 +3631,7 @@ namespace clojure.lang
             }
         }
 
-        static void Merge(object[] src, object[] dst, int lo, int mid, int hi, IComparer cmp)
+        static void Merge<TCmp>(object[] src, object[] dst, int lo, int mid, int hi, TCmp cmp) where TCmp : struct, ISortComparer
         {
             int i = lo, j = mid, k = lo;
             while (i < mid && j < hi)

@@ -777,21 +777,21 @@ namespace clojure.lang
 
         static INode[] CloneAndSet(INode[] array, int i, INode a)
         {
-            INode[] clone = (INode[])array.Clone();
+            INode[] clone = ArrayUtil.CopyOf(array);
             clone[i] = a;
             return clone;
         }
 
         static object[] CloneAndSet(object[] array, int i, object a)
         {
-            Object[] clone = (object[])array.Clone();
+            Object[] clone = ArrayUtil.CopyOf(array);
             clone[i] = a;
             return clone;
         }
 
         static object[] CloneAndSet(object[] array, int i, object a, int j, object b)
         {
-            object[] clone = (object[])array.Clone();
+            object[] clone = ArrayUtil.CopyOf(array);
             clone[i] = a;
             clone[j] = b;
             return clone;
@@ -1040,7 +1040,7 @@ namespace clojure.lang
             {
                 if (_edit == edit)
                     return this;
-                return new ArrayNode(edit, _count, (INode[])_array.Clone());
+                return new ArrayNode(edit, _count, ArrayUtil.CopyOf(_array));
             }
 
             ArrayNode EditAndSet(AtomicReference<Thread> edit, int i, INode n)

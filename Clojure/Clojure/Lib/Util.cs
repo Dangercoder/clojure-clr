@@ -34,6 +34,14 @@ namespace clojure.lang
             if (o == null)
                 return 0;
 
+            // Common sealed types before the IHashEq check (see equiv); same results.
+            if (o is Keyword kw)
+                return dohasheq(kw);
+            if (o is string str)
+                return Murmur3.HashString(str);
+            if (o is long)
+                return Numbers.hasheq(o);
+
             if (o is IHashEq ihe)
                 return dohasheq(ihe);
 
@@ -61,12 +69,36 @@ namespace clojure.lang
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static public bool equiv(object k1, object k2)
         {
             if (k1 == k2)
                 return true;
+            if (k1 is long l1 && k2 is long l2)
+                return l1 == l2;
+            if (k1 is Keyword kw1 && k2 is Keyword)
+                return kw1.Equals(k2);
+            if (k1 is string s1 && k2 is string s2)
+                return s1.Equals(s2);
+            return equivSlow(k1, k2);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool equivSlow(object k1, object k2)
+        {
+            // Sealed types first: the interface checks below are slow on .NET for strings and
+            // boxed numbers, which implement dozens of generic-math and span interfaces.
+            if (k1 is Keyword kw1 && k2 is Keyword)
+                return kw1.Equals(k2);
+            if (k1 is string s1 && k2 is string s2)
+                return s1.Equals(s2);
             if (k1 != null)
             {
+                // A collection on the left goes straight to pcequiv, as the chain below would
+                // (no numeric type is a collection); IsNumeric on it walks its Type. Boxed
+                // numbers skip this: interface checks on them are the slow case.
+                if (!(k1 is ValueType) && k1 is IPersistentCollection)
+                    return pcequiv(k1, k2);
                 if (IsNumeric(k1) && IsNumeric(k2))
                     return Numbers.equal(k1, k2);
 
@@ -128,13 +160,13 @@ namespace clojure.lang
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
         public static bool equiv(long x, object y)
         {
-            return equiv((object)x, y);
+            return equiv(Numbers.num(x), y);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
         public static bool equiv(object x, long y)
         {
-            return equiv(x, (object)y);
+            return equiv(x, Numbers.num(y));
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
@@ -258,10 +290,19 @@ namespace clojure.lang
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int compare(object k1, object k2)
         {
             if (k1 == k2)
                 return 0;
+            if (k1 is long l1 && k2 is long l2)
+                return l1 < l2 ? -1 : l1 > l2 ? 1 : 0;
+            return compareSlow(k1, k2);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static int compareSlow(object k1, object k2)
+        {
             if (k1 != null)
             {
                 if (k2 == null)
@@ -286,6 +327,7 @@ namespace clojure.lang
 
         public static int ConvertToInt(object o)
         {
+            if (o is int same) return same;
             switch (Type.GetTypeCode(o.GetType()))
             {
                 case TypeCode.Byte:
@@ -352,6 +394,7 @@ namespace clojure.lang
 
         public static long ConvertToLong(object o)
         {
+            if (o is long same) return same;
             switch (Type.GetTypeCode(o.GetType()))
             {
                 case TypeCode.Byte:
@@ -590,6 +633,7 @@ namespace clojure.lang
 
         public static double ConvertToDouble(object o)
         {
+            if (o is double same) return same;
             switch (Type.GetTypeCode(o.GetType()))
             {
                 case TypeCode.Byte:
@@ -693,7 +737,11 @@ namespace clojure.lang
 
         public static bool IsNumeric(object o)
         {
-            return o != null && IsNumeric(o.GetType());
+            // The common answers without Type.GetTypeCode. (Enums count as numeric through
+            // their underlying type, so the general check stays for everything else.)
+            if (o is long || o is double) return true;
+            if (o is null || o is Keyword || o is string || o is Symbol) return false;
+            return IsNumeric(o.GetType());
         }
 
         public static int BitCount(int x)

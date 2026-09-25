@@ -289,7 +289,23 @@ namespace clojure.lang
 
 
 
-        public static bool isZero(object x) { return ops(x).isZero(x); }
+        // Fast paths: two longs or two doubles skip the ops dispatch (Type.GetTypeCode, two
+        // virtual calls and ConvertToLong/ConvertToDouble per argument). They call the same
+        // overflow-checked long overloads, so results and exceptions are unchanged.
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool isZero(object x)
+        {
+            if (x is long l) return l == 0;
+            if (x is double d) return d == 0;
+            return isZeroSlow(x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool isZeroSlow(object x)
+        {
+            return ops(x).isZero(x);
+        }
 
 
 
@@ -307,7 +323,19 @@ namespace clojure.lang
 
 
 
-        public static bool isPos(object x) { return ops(x).isPos(x); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool isPos(object x)
+        {
+            if (x is long l) return l > 0;
+            if (x is double d) return d > 0;
+            return isPosSlow(x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool isPosSlow(object x)
+        {
+            return ops(x).isPos(x);
+        }
 
 
         public static bool isPos(double x) { return x > 0; }
@@ -324,7 +352,19 @@ namespace clojure.lang
 
 
 
-        public static bool isNeg(object x) { return ops(x).isNeg(x); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool isNeg(object x)
+        {
+            if (x is long l) return l < 0;
+            if (x is double d) return d < 0;
+            return isNegSlow(x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool isNegSlow(object x)
+        {
+            return ops(x).isNeg(x);
+        }
 
 
         public static bool isNeg(double x) { return x < 0; }
@@ -345,12 +385,25 @@ namespace clojure.lang
         #region add, addP, unchecked_add
 
 
-        public static object add(object x, object y) { return ops(x).combine(ops(y)).add(x, y); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static object add(object x, object y)
+        {
+            if (x is long lx && y is long ly) return num(add(lx, ly));
+            if (x is double dx && y is double dy) return dx + dy;
+            return addSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static object addSlow(object x, object y)
+        {
+            return ops(x).combine(ops(y)).add(x, y);
+        }
 
 
         public static double add(double x, double y) { return x + y; }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long add(long x, long y)
         {
             long ret = x + y;
@@ -389,10 +442,10 @@ namespace clojure.lang
         public static double add(ulong x, double y) { return x + y; }
 
 
-        public static object add(long x, Object y) { return add((Object)x, y); }
+        public static object add(long x, Object y) { return add(num(x), y); }
 
 
-        public static object add(Object x, long y) { return add(x, (Object)y); }
+        public static object add(Object x, long y) { return add(x, num(y)); }
 
 
         public static object add(ulong x, Object y) { return add((Object)x, y); }
@@ -403,10 +456,10 @@ namespace clojure.lang
         // Interesting problem mixing long/ulong -- what should the semantics be?
         // easiest is to punt.
 
-        public static object add(long x, ulong y) { return add((Object)x, (Object)y); }
+        public static object add(long x, ulong y) { return add(num(x), (Object)y); }
 
 
-        public static object add(ulong x, long y) { return add((Object)x, (Object)y); }
+        public static object add(ulong x, long y) { return add((Object)x, num(y)); }
 
 
 
@@ -421,7 +474,7 @@ namespace clojure.lang
         {
             long ret = x + y;
             if ((ret ^ x) < 0 && (ret ^ y) < 0)
-                return addP((object)x, (object)y);
+                return addP(num(x), num(y));
             return num(ret);
         }
 
@@ -462,10 +515,10 @@ namespace clojure.lang
         public static double addP(long x, double y) { return x + y; }
 
 
-        public static object addP(long x, Object y) { return addP((Object)x, y); }
+        public static object addP(long x, Object y) { return addP(num(x), y); }
 
 
-        public static object addP(Object x, long y) { return addP(x, (Object)y); }
+        public static object addP(Object x, long y) { return addP(x, num(y)); }
 
 
         public static object addP(ulong x, Object y) { return addP((Object)x, y); }
@@ -474,10 +527,10 @@ namespace clojure.lang
         public static object addP(Object x, ulong y) { return addP(x, (Object)y); }
 
 
-        public static object addP(long x, ulong y) { return addP((Object)x, (Object)y); }
+        public static object addP(long x, ulong y) { return addP(num(x), (Object)y); }
 
 
-        public static object addP(ulong x, long y) { return addP((Object)x, (Object)y); }
+        public static object addP(ulong x, long y) { return addP((Object)x, num(y)); }
 
 
 
@@ -526,11 +579,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_add(long x, object y) { return unchecked_add((Object)x, y); }
+        public static object unchecked_add(long x, object y) { return unchecked_add(num(x), y); }
 
 
 
-        public static object unchecked_add(object x, long y) { return unchecked_add(x, (Object)y); }
+        public static object unchecked_add(object x, long y) { return unchecked_add(x, num(y)); }
 
 
 
@@ -542,11 +595,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_add(long x, ulong y) { return unchecked_add((Object)x, (Object)y); }
+        public static object unchecked_add(long x, ulong y) { return unchecked_add(num(x), (Object)y); }
 
 
 
-        public static object unchecked_add(ulong x, long y) { return unchecked_add((Object)x, (Object)y); }
+        public static object unchecked_add(ulong x, long y) { return unchecked_add((Object)x, num(y)); }
 
         #endregion
 
@@ -605,7 +658,18 @@ namespace clojure.lang
         public static decimal minusP(decimal x) { return -x; }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static object minus(object x, object y)
+        {
+            // long.MinValue keeps the general path: it computes x + (-y), and negating
+            // MinValue throws even where x - y would not.
+            if (x is long lx && y is long ly && ly != long.MinValue) return num(minus(lx, ly));
+            if (x is double dx && y is double dy) return dx - dy;
+            return minusSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static object minusSlow(object x, object y)
         {
             Ops yops = ops(y);
             Ops xyops = ops(x).combine(yops);
@@ -625,6 +689,7 @@ namespace clojure.lang
 
         public static double minus(double x, double y) { return x - y; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long minus(long x, long y)
         {
             long ret = x - y;
@@ -663,10 +728,10 @@ namespace clojure.lang
         public static double minus(ulong x, double y) { return x - y; }
 
 
-        public static object minus(long x, Object y) { return minus((Object)x, y); }
+        public static object minus(long x, Object y) { return minus(num(x), y); }
 
 
-        public static object minus(Object x, long y) { return minus(x, (Object)y); }
+        public static object minus(Object x, long y) { return minus(x, num(y)); }
 
 
         public static object minus(ulong x, Object y) { return minus((Object)x, y); }
@@ -675,10 +740,10 @@ namespace clojure.lang
         public static object minus(Object x, ulong y) { return minus(x, (Object)y); }
 
 
-        public static object minus(long x, ulong y) { return minus((Object)x, (Object)y); }
+        public static object minus(long x, ulong y) { return minus(num(x), (Object)y); }
 
 
-        public static object minus(ulong x, long y) { return minus((Object)x, (Object)y); }
+        public static object minus(ulong x, long y) { return minus((Object)x, num(y)); }
 
 
 
@@ -712,7 +777,7 @@ namespace clojure.lang
         {
             long ret = x - y;
             if (((ret ^ x) < 0 && (ret ^ ~y) < 0))
-                return minusP((object)x, (object)y);
+                return minusP(num(x), num(y));
             return num(ret);
         }
 
@@ -754,10 +819,10 @@ namespace clojure.lang
         public static double minusP(ulong x, double y) { return x - y; }
 
 
-        public static object minusP(long x, Object y) { return minusP((Object)x, y); }
+        public static object minusP(long x, Object y) { return minusP(num(x), y); }
 
 
-        public static object minusP(Object x, long y) { return minusP(x, (Object)y); }
+        public static object minusP(Object x, long y) { return minusP(x, num(y)); }
 
 
         public static object minusP(ulong x, Object y) { return minusP((Object)x, y); }
@@ -766,10 +831,10 @@ namespace clojure.lang
         public static object minusP(Object x, ulong y) { return minusP(x, (Object)y); }
 
 
-        public static object minusP(long x, ulong y) { return minusP((Object)x, (Object)y); }
+        public static object minusP(long x, ulong y) { return minusP(num(x), (Object)y); }
 
 
-        public static object minusP(ulong x, long y) { return minusP((Object)x, (Object)y); }
+        public static object minusP(ulong x, long y) { return minusP((Object)x, num(y)); }
 
 
 
@@ -855,11 +920,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_minus(long x, object y) { return unchecked_minus((Object)x, y); }
+        public static object unchecked_minus(long x, object y) { return unchecked_minus(num(x), y); }
 
 
 
-        public static object unchecked_minus(object x, long y) { return unchecked_minus(x, (Object)y); }
+        public static object unchecked_minus(object x, long y) { return unchecked_minus(x, num(y)); }
 
 
 
@@ -871,23 +936,36 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_minus(long x, ulong y) { return unchecked_minus((Object)x, (Object)y); }
+        public static object unchecked_minus(long x, ulong y) { return unchecked_minus(num(x), (Object)y); }
 
 
 
-        public static object unchecked_minus(ulong x, long y) { return unchecked_minus((Object)x, (Object)y); }
+        public static object unchecked_minus(ulong x, long y) { return unchecked_minus((Object)x, num(y)); }
 
         #endregion
 
         #region multiply, multiplyP, unchecked_multiply
 
 
-        public static object multiply(object x, object y) { return ops(x).combine(ops(y)).multiply(x, y); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static object multiply(object x, object y)
+        {
+            if (x is long lx && y is long ly) return num(multiply(lx, ly));
+            if (x is double dx && y is double dy) return dx * dy;
+            return multiplySlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static object multiplySlow(object x, object y)
+        {
+            return ops(x).combine(ops(y)).multiply(x, y);
+        }
 
 
         public static double multiply(double x, double y) { return x * y; }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long multiply(long x, long y)
         {
             if (x == Int64.MinValue && y < 0)
@@ -929,10 +1007,10 @@ namespace clojure.lang
         public static double multiply(ulong x, double y) { return x * y; }
 
 
-        public static object multiply(long x, Object y) { return multiply((Object)x, y); }
+        public static object multiply(long x, Object y) { return multiply(num(x), y); }
 
 
-        public static object multiply(Object x, long y) { return multiply(x, (Object)y); }
+        public static object multiply(Object x, long y) { return multiply(x, num(y)); }
 
 
         public static object multiply(ulong x, Object y) { return multiply((Object)x, y); }
@@ -941,10 +1019,10 @@ namespace clojure.lang
         public static object multiply(Object x, ulong y) { return multiply(x, (Object)y); }
 
 
-        public static object multiply(long x, ulong y) { return multiply((Object)x, (Object)y); }
+        public static object multiply(long x, ulong y) { return multiply(num(x), (Object)y); }
 
 
-        public static object multiply(ulong x, long y) { return multiply((Object)x, (Object)y); }
+        public static object multiply(ulong x, long y) { return multiply((Object)x, num(y)); }
 
 
 
@@ -958,10 +1036,10 @@ namespace clojure.lang
         public static object multiplyP(long x, long y)
         {
             if (x == Int64.MinValue && y < 0)
-                return multiplyP((object)x, (object)y);
+                return multiplyP(num(x), num(y));
             long ret = x * y;
             if (y != 0 && ret / y != x)
-                return multiplyP((object)x, (object)y);
+                return multiplyP(num(x), num(y));
             return num(ret);
         }
 
@@ -1006,10 +1084,10 @@ namespace clojure.lang
         public static double multiplyP(ulong x, double y) { return x * y; }
 
 
-        public static object multiplyP(long x, Object y) { return multiplyP((Object)x, y); }
+        public static object multiplyP(long x, Object y) { return multiplyP(num(x), y); }
 
 
-        public static object multiplyP(Object x, long y) { return multiplyP(x, (Object)y); }
+        public static object multiplyP(Object x, long y) { return multiplyP(x, num(y)); }
 
 
         public static object multiplyP(ulong x, Object y) { return multiplyP((Object)x, y); }
@@ -1018,10 +1096,10 @@ namespace clojure.lang
         public static object multiplyP(Object x, ulong y) { return multiplyP(x, (Object)y); }
 
 
-        public static object multiplyP(long x, ulong y) { return multiplyP((Object)x, (Object)y); }
+        public static object multiplyP(long x, ulong y) { return multiplyP(num(x), (Object)y); }
 
 
-        public static object multiplyP(ulong x, long y) { return multiplyP((Object)x, (Object)y); }
+        public static object multiplyP(ulong x, long y) { return multiplyP((Object)x, num(y)); }
 
 
 
@@ -1071,11 +1149,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_multiply(long x, object y) { return unchecked_multiply((Object)x, y); }
+        public static object unchecked_multiply(long x, object y) { return unchecked_multiply(num(x), y); }
 
 
 
-        public static object unchecked_multiply(object x, long y) { return unchecked_multiply(x, (Object)y); }
+        public static object unchecked_multiply(object x, long y) { return unchecked_multiply(x, num(y)); }
 
 
 
@@ -1087,11 +1165,11 @@ namespace clojure.lang
 
 
 
-        public static object unchecked_multiply(long x, ulong y) { return unchecked_multiply((Object)x, (Object)y); }
+        public static object unchecked_multiply(long x, ulong y) { return unchecked_multiply(num(x), (Object)y); }
 
 
 
-        public static object unchecked_multiply(ulong x, long y) { return unchecked_multiply((Object)x, (Object)y); }
+        public static object unchecked_multiply(ulong x, long y) { return unchecked_multiply((Object)x, num(y)); }
 
         #endregion
 
@@ -1115,7 +1193,7 @@ namespace clojure.lang
         public static double divide(double x, double y) { return x / y; }
 
 
-        public static object divide(long x, long y) { return divide((object)x, (object)y); }
+        public static object divide(long x, long y) { return divide(num(x), num(y)); }
 
 
         public static double divide(double x, Object y) { return x / Util.ConvertToDouble(y); }
@@ -1130,10 +1208,10 @@ namespace clojure.lang
         public static double divide(long x, double y) { return x / y; }
 
 
-        public static object divide(long x, Object y) { return divide((Object)x, y); }
+        public static object divide(long x, Object y) { return divide(num(x), y); }
 
 
-        public static object divide(Object x, long y) { return divide(x, (Object)y); }
+        public static object divide(Object x, long y) { return divide(x, num(y)); }
 
 
         // missing divide: uu du ud lu ul uo ou
@@ -1181,10 +1259,10 @@ namespace clojure.lang
         public static double quotient(long x, double y) { return quotient((double)x, y); }
 
 
-        public static object quotient(long x, Object y) { return quotient((Object)x, y); }
+        public static object quotient(long x, Object y) { return quotient(num(x), y); }
 
 
-        public static object quotient(Object x, long y) { return quotient(x, (Object)y); }
+        public static object quotient(Object x, long y) { return quotient(x, num(y)); }
 
 
         // missing divide:  du ud lu ul uo ou
@@ -1235,10 +1313,10 @@ namespace clojure.lang
         public static double remainder(long x, double y) { return remainder((double)x, y); }
 
 
-        public static object remainder(long x, Object y) { return remainder((Object)x, y); }
+        public static object remainder(long x, Object y) { return remainder(num(x), y); }
 
 
-        public static object remainder(Object x, long y) { return remainder(x, (Object)y); }
+        public static object remainder(Object x, long y) { return remainder(x, num(y)); }
 
         // missing remainder:  du ud lu ul uo ou
 
@@ -1247,13 +1325,26 @@ namespace clojure.lang
         #region inc, incP, unchecked_inc, dec, decP, unchecked_dec
 
 
-        public static object inc(object x) { return ops(x).inc(x); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static object inc(object x)
+        {
+            if (x is long l) return num(inc(l));
+            if (x is double d) return d + 1;
+            return incSlow(x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static object incSlow(object x)
+        {
+            return ops(x).inc(x);
+        }
 
 
         public static double inc(double x) { return x + 1; }
 
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long inc(long x)
         {
             if (x == Int64.MaxValue)
@@ -1282,7 +1373,7 @@ namespace clojure.lang
         public static object incP(long x)
         {
             if (x == Int64.MaxValue)
-                return BIGINT_OPS.inc((object)x);
+                return BIGINT_OPS.inc(num(x));
             return num(x + 1);
         }
 
@@ -1301,12 +1392,25 @@ namespace clojure.lang
         }
 
 
-        public static object dec(object x) { return ops(x).dec(x); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static object dec(object x)
+        {
+            if (x is long l) return num(dec(l));
+            if (x is double d) return d - 1;
+            return decSlow(x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static object decSlow(object x)
+        {
+            return ops(x).dec(x);
+        }
 
 
         public static double dec(double x) { return x - 1; }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long dec(long x)
         {
             if (x == Int64.MinValue)
@@ -1335,7 +1439,7 @@ namespace clojure.lang
         public static object decP(long x)
         {
             if (x == Int64.MinValue)
-                return BIGINT_OPS.dec((object)x);
+                return BIGINT_OPS.dec(num(x));
             return num(x - 1);
         }
 
@@ -1398,14 +1502,32 @@ namespace clojure.lang
         #region equal, compare
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool equal(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx == ly;
+            if (x is double dx && y is double dy) return dx == dy;
+            return equalSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool equalSlow(object x, object y)
         {
             return category(x) == category(y)
                 && ops(x).combine(ops(y)).equiv(x, y);
         }
 
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int compare(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx < ly ? -1 : lx > ly ? 1 : 0;
+            if (x is double dx && y is double dy) return dx < dy ? -1 : dy < dx ? 1 : 0;
+            return compareSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static int compareSlow(object x, object y)
         {
             Ops xyops = ops(x).combine(ops(y));
             if (xyops.lt(x, y))
@@ -1421,7 +1543,19 @@ namespace clojure.lang
         #region equiv, lt, lte, gt, gte
 
 
-        public static bool equiv(object x, object y) { return ops(x).combine(ops(y)).equiv(x, y); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool equiv(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx == ly;
+            if (x is double dx && y is double dy) return dx == dy;
+            return equivSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool equivSlow(object x, object y)
+        {
+            return ops(x).combine(ops(y)).equiv(x, y);
+        }
 
 
         public static bool equiv(double x, double y) { return x == y; }
@@ -1454,10 +1588,10 @@ namespace clojure.lang
         public static bool equiv(ulong x, double y) { return x == y; }
 
 
-        public static bool equiv(long x, Object y) { return equiv((Object)x, y); }
+        public static bool equiv(long x, Object y) { return equiv(num(x), y); }
 
 
-        public static bool equiv(Object x, long y) { return equiv(x, (Object)y); }
+        public static bool equiv(Object x, long y) { return equiv(x, num(y)); }
 
 
         public static bool equiv(ulong x, Object y) { return equiv((Object)x, y); }
@@ -1466,15 +1600,27 @@ namespace clojure.lang
         public static bool equiv(Object x, ulong y) { return equiv(x, (Object)y); }
 
 
-        public static bool equiv(long x, ulong y) { return equiv((Object)x, (Object)y); }
+        public static bool equiv(long x, ulong y) { return equiv(num(x), (Object)y); }
 
 
-        public static bool equiv(ulong x, long y) { return equiv((Object)x, (Object)y); }
+        public static bool equiv(ulong x, long y) { return equiv((Object)x, num(y)); }
 
 
 
 
-        public static bool lt(object x, object y) { return ops(x).combine(ops(y)).lt(x, y); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool lt(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx < ly;
+            if (x is double dx && y is double dy) return dx < dy;
+            return ltSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool ltSlow(object x, object y)
+        {
+            return ops(x).combine(ops(y)).lt(x, y);
+        }
 
 
         public static bool lt(double x, double y) { return x < y; }
@@ -1507,10 +1653,10 @@ namespace clojure.lang
         public static bool lt(ulong x, double y) { return x < y; }
 
 
-        public static bool lt(long x, Object y) { return lt((Object)x, y); }
+        public static bool lt(long x, Object y) { return lt(num(x), y); }
 
 
-        public static bool lt(Object x, long y) { return lt(x, (Object)y); }
+        public static bool lt(Object x, long y) { return lt(x, num(y)); }
 
 
         public static bool lt(ulong x, Object y) { return lt((Object)x, y); }
@@ -1519,15 +1665,27 @@ namespace clojure.lang
         public static bool lt(Object x, ulong y) { return lt(x, (Object)y); }
 
 
-        public static bool lt(long x, ulong y) { return lt((Object)x, (Object)y); }
+        public static bool lt(long x, ulong y) { return lt(num(x), (Object)y); }
 
 
-        public static bool lt(ulong x, long y) { return lt((Object)x, (Object)y); }
+        public static bool lt(ulong x, long y) { return lt((Object)x, num(y)); }
 
 
 
 
-        public static bool lte(object x, object y) { return ops(x).combine(ops(y)).lte(x, y); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool lte(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx <= ly;
+            if (x is double dx && y is double dy) return dx <= dy;
+            return lteSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool lteSlow(object x, object y)
+        {
+            return ops(x).combine(ops(y)).lte(x, y);
+        }
 
 
         public static bool lte(double x, double y) { return x <= y; }
@@ -1560,10 +1718,10 @@ namespace clojure.lang
         public static bool lte(ulong x, double y) { return x <= y; }
 
 
-        public static bool lte(long x, Object y) { return lte((Object)x, y); }
+        public static bool lte(long x, Object y) { return lte(num(x), y); }
 
 
-        public static bool lte(Object x, long y) { return lte(x, (Object)y); }
+        public static bool lte(Object x, long y) { return lte(x, num(y)); }
 
 
         public static bool lte(ulong x, Object y) { return lte((Object)x, y); }
@@ -1572,15 +1730,27 @@ namespace clojure.lang
         public static bool lte(Object x, ulong y) { return lte(x, (Object)y); }
 
 
-        public static bool lte(long x, ulong y) { return lte((Object)x, (Object)y); }
+        public static bool lte(long x, ulong y) { return lte(num(x), (Object)y); }
 
 
-        public static bool lte(ulong x, long y) { return lte((Object)x, (Object)y); }
+        public static bool lte(ulong x, long y) { return lte((Object)x, num(y)); }
 
 
 
 
-        public static bool gt(object x, object y) { return ops(x).combine(ops(y)).lt(y, x); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool gt(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx > ly;
+            if (x is double dx && y is double dy) return dx > dy;
+            return gtSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool gtSlow(object x, object y)
+        {
+            return ops(x).combine(ops(y)).lt(y, x);
+        }
 
 
         public static bool gt(double x, double y) { return x > y; }
@@ -1613,10 +1783,10 @@ namespace clojure.lang
         public static bool gt(ulong x, double y) { return x > y; }
 
 
-        public static bool gt(long x, Object y) { return gt((Object)x, y); }
+        public static bool gt(long x, Object y) { return gt(num(x), y); }
 
 
-        public static bool gt(Object x, long y) { return gt(x, (Object)y); }
+        public static bool gt(Object x, long y) { return gt(x, num(y)); }
 
 
         public static bool gt(ulong x, Object y) { return gt((Object)x, y); }
@@ -1625,14 +1795,26 @@ namespace clojure.lang
         public static bool gt(Object x, ulong y) { return gt(x, (Object)y); }
 
 
-        public static bool gt(long x, ulong y) { return gt((Object)x, (Object)y); }
+        public static bool gt(long x, ulong y) { return gt(num(x), (Object)y); }
 
 
-        public static bool gt(ulong x, long y) { return gt((Object)x, (Object)y); }
+        public static bool gt(ulong x, long y) { return gt((Object)x, num(y)); }
 
 
 
-        public static bool gte(object x, object y) { return ops(x).combine(ops(y)).gte(x, y); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool gte(object x, object y)
+        {
+            if (x is long lx && y is long ly) return lx >= ly;
+            if (x is double dx && y is double dy) return dx >= dy;
+            return gteSlow(x, y);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static bool gteSlow(object x, object y)
+        {
+            return ops(x).combine(ops(y)).gte(x, y);
+        }
 
 
         public static bool gte(double x, double y) { return x >= y; }
@@ -1665,10 +1847,10 @@ namespace clojure.lang
         public static bool gte(ulong x, double y) { return x >= y; }
 
 
-        public static bool gte(long x, Object y) { return gte((Object)x, y); }
+        public static bool gte(long x, Object y) { return gte(num(x), y); }
 
 
-        public static bool gte(Object x, long y) { return gte(x, (Object)y); }
+        public static bool gte(Object x, long y) { return gte(x, num(y)); }
 
 
         public static bool gte(ulong x, Object y) { return gte((Object)x, y); }
@@ -1677,10 +1859,10 @@ namespace clojure.lang
         public static bool gte(Object x, ulong y) { return gte(x, (Object)y); }
 
 
-        public static bool gte(long x, ulong y) { return gte((Object)x, (Object)y); }
+        public static bool gte(long x, ulong y) { return gte(num(x), (Object)y); }
 
 
-        public static bool gte(ulong x, long y) { return gte((Object)x, (Object)y); }
+        public static bool gte(ulong x, long y) { return gte((Object)x, num(y)); }
 
         #endregion
 
@@ -2135,7 +2317,22 @@ namespace clojure.lang
         public static object num(double x) { return x; }
 
 
-        public static object num(long x) { return x; }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static object num(long x)
+        {
+            ulong i = unchecked((ulong)(x - LongBoxLow));
+            return i < (ulong)LongBoxes.Length ? LongBoxes[i] : x;
+        }
+
+        // Boxed longs from -128 to 1023, shared (see RT.box).
+        const long LongBoxLow = -128;
+        static readonly object[] LongBoxes = MakeLongBoxes();
+        static object[] MakeLongBoxes()
+        {
+            var boxes = new object[1024 + 128];
+            for (int i = 0; i < boxes.Length; i++) boxes[i] = i + LongBoxLow;
+            return boxes;
+        }
 
 
         public static object num(ulong x) { return x; }

@@ -434,8 +434,26 @@ namespace clojure.lang.CljCompiler.Ast
         {
             if (returnType == typeof(void))
                 ilg.Emit(OpCodes.Ldnull);
-            else if (returnType.IsPrimitive || returnType.IsValueType)
-                ilg.Emit(OpCodes.Box, returnType);
+            else
+                EmitBox(ilg, returnType);
+        }
+
+        static readonly MethodInfo Method_RT_box_bool = typeof(RT).GetMethod("box", new[] { typeof(bool) });
+        static readonly MethodInfo Method_RT_box_int = typeof(RT).GetMethod("box", new[] { typeof(int) });
+        static readonly MethodInfo Method_Numbers_num_long = typeof(Numbers).GetMethod("num", new[] { typeof(long) });
+
+        /// <summary>Boxes a value type on the stack. bool, int and long go through RT.box /
+        /// Numbers.num, which return shared boxes for booleans and small numbers.</summary>
+        internal static void EmitBox(CljILGen ilg, Type type)
+        {
+            if (type == typeof(bool))
+                ilg.Emit(OpCodes.Call, Method_RT_box_bool);
+            else if (type == typeof(long))
+                ilg.Emit(OpCodes.Call, Method_Numbers_num_long);
+            else if (type == typeof(int))
+                ilg.Emit(OpCodes.Call, Method_RT_box_int);
+            else if (type.IsPrimitive || type.IsValueType)
+                ilg.Emit(OpCodes.Box, type);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "Standard API")]

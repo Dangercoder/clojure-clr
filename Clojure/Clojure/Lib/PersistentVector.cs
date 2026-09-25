@@ -300,7 +300,7 @@ namespace clojure.lang
             return notFound;
         }
 
-        object[] ArrayFor(int i)
+        internal object[] ArrayFor(int i)
         {
             if (i >= 0 && i < _cnt)
             {
@@ -344,7 +344,7 @@ namespace clojure.lang
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
         static private Node doAssoc(int level, Node node, int i, object val)
         {
-            Node ret = new(node.Edit, (object[])node.Array.Clone());
+            Node ret = new(node.Edit, ArrayUtil.CopyOf(node.Array));
             if (level == 0)
                 ret.Array[i & 0x01f] = val;
             else
@@ -401,7 +401,7 @@ namespace clojure.lang
             // else alloc new path
             // return nodeToInsert placed in copy of parent
             int subidx = ((_cnt - 1) >> level) & 0x01f;
-            Node ret = new(parent.Edit, (object[])parent.Array.Clone());
+            Node ret = new(parent.Edit, ArrayUtil.CopyOf(parent.Array));
             Node nodeToInsert;
 
             if (level == 5)
@@ -496,7 +496,7 @@ namespace clojure.lang
                     return null;
                 else
                 {
-                    Node ret = new(_root.Edit, (object[])node.Array.Clone());
+                    Node ret = new(_root.Edit, ArrayUtil.CopyOf(node.Array));
                     ret.Array[subidx] = newchild;
                     return ret;
                 }
@@ -505,7 +505,7 @@ namespace clojure.lang
                 return null;
             else
             {
-                Node ret = new(_root.Edit, (object[])node.Array.Clone());
+                Node ret = new(_root.Edit, ArrayUtil.CopyOf(node.Array));
                 ret.Array[subidx] = null;
                 return ret;
             }
@@ -829,12 +829,15 @@ namespace clojure.lang
             {
                 if (node.Edit == _root.Edit)
                     return node;
-                return new Node(_root.Edit, (object[])node.Array.Clone());
+                return new Node(_root.Edit, ArrayUtil.CopyOf(node.Array));
             }
 
             static Node EditableRoot(Node node)
             {
-                return new Node(new AtomicReference<Thread>(Thread.CurrentThread), (object[])node.Array.Clone());
+                // Vectors of up to 32 elements share EmptyNode as their root: this transient's
+                // root shares its all-null array too, until PushTail first writes to it.
+                return new Node(new AtomicReference<Thread>(Thread.CurrentThread),
+                                ReferenceEquals(node, EmptyNode) ? EmptyNode.Array : ArrayUtil.CopyOf(node.Array));
             }
 
             static object[] EditableTail(object[] tl)
@@ -849,9 +852,14 @@ namespace clojure.lang
                 //if parent is leaf, insert node,
                 // else does it map to an existing child? -> nodeToInsert = pushNode one more level
                 // else alloc new path
-                //return  nodeToInsert placed in copy of parent
+                //return  nodeToInsert placed in parent
+                // Edit in place, as the JVM's TransientVector.pushTail does: the node is this
+                // transient's own once editable. The root may still share EmptyNode's array.
+                parent = ReferenceEquals(parent.Array, EmptyNode.Array)
+                    ? new Node(_root.Edit, new object[32])
+                    : EnsureEditable(parent);
                 int subidx = ((_cnt - 1) >> level) & 0x01f;
-                Node ret = new(parent.Edit, (object[])parent.Array.Clone());
+                Node ret = parent;
                 Node nodeToInsert;
                 if (level == 5)
                 {
@@ -943,8 +951,8 @@ namespace clojure.lang
             [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
             Node doAssoc(int level, Node node, int i, Object val)
             {
-                node = EnsureEditable(node);
-                Node ret = new(node.Edit, (object[])node.Array.Clone());
+                node = EnsureEditable(node); // then edit in place, as the JVM's TransientVector.doAssoc does
+                Node ret = node;
                 if (level == 0)
                 {
                     ret.Array[i & 0x01f] = val;
@@ -1079,7 +1087,7 @@ namespace clojure.lang
                 _root.Edit.Set(null);
                 object[] trimmedTail = new object[_cnt - Tailoff()];
                 Array.Copy(_tail, trimmedTail, trimmedTail.Length);
-                return new PersistentVector(_cnt, _shift, _root, trimmedTail);
+                return new PersistentVector(_cnt, _shift, ReferenceEquals(_root.Array, EmptyNode.Array) ? EmptyNode : _root, trimmedTail);
             }
 
             #endregion

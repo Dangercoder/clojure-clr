@@ -151,7 +151,7 @@ namespace clojure.lang
 
         public override object first()
         {
-            return _start;
+            return Numbers.num(_start); // shared box for small values
         }
 
         public override ISeq next()
@@ -236,7 +236,7 @@ namespace clojure.lang
 
             while (n > 1)
             {
-                acc = f.invoke(acc, i);
+                acc = f.invoke(acc, Numbers.num(i));
                 if (acc is Reduced accRed)
                     return accRed.deref();
                 i += _step;
@@ -252,7 +252,7 @@ namespace clojure.lang
             int n = _count;
             do
             {
-                acc = f.invoke(acc, i);
+                acc = f.invoke(acc, Numbers.num(i));
                 if (RT.isReduced(acc)) return ((Reduced)acc).deref();
                 i += _step;
                 n--;
@@ -342,13 +342,13 @@ namespace clojure.lang
 
             public object nth(int i)
             {
-                return _start + (i * _step);
+                return Numbers.num(_start + (i * _step));
             }
 
             public object nth(int i, object notFound)
             {
                 if (i >= 0 && i < _count)
-                    return _start + (i * _step);
+                    return Numbers.num(_start + (i * _step));
                 return notFound;
             }
 

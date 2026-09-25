@@ -16,6 +16,15 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
+// Realizing a LazySeq/Delay takes a reentrant lock. System.Threading.Lock (.NET 9+) is the
+// runtime's lightweight lock; older frameworks use Monitor on a plain object. Both replace
+// a ReaderWriterLockSlim per instance, of which only the write side was ever used.
+#if NET9_0_OR_GREATER
+using RealizeLock = System.Threading.Lock;
+#else
+using RealizeLock = System.Object;
+#endif
+
 namespace clojure.lang
 {
     /// <summary>
@@ -40,7 +49,7 @@ namespace clojure.lang
         /// </summary>
         IFn _fn;
 
-        ReaderWriterLockSlim _lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+        RealizeLock _lock = new RealizeLock();
 
         #endregion
 
@@ -83,27 +92,20 @@ namespace clojure.lang
             var lk = _lock;
             if ( lk != null )
             {
-                lk.EnterWriteLock();
+                lock (lk)
                 {
-                    try
+                    if (_fn != null)
                     {
-                        if (_fn != null)
+                        try
                         {
-                            try
-                            {
-                                _val = _fn.invoke();
-                            }
-                            catch (Exception e)
-                            {
-                                _exception = e;
-                            }
-                            _fn = null;
-                            _lock = null;
+                            _val = _fn.invoke();
                         }
-                    }
-                    finally
-                    {
-                        lk.ExitWriteLock();
+                        catch (Exception e)
+                        {
+                            _exception = e;
+                        }
+                        _fn = null;
+                        _lock = null;
                     }
                 }
             }

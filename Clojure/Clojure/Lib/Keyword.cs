@@ -114,7 +114,23 @@ namespace clojure.lang
         /// <param name="nsname">The keyword's name</param>
         /// <returns>A keyword</returns>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "ClojureJVM name match")]
+        // (keyword "name") without a Symbol allocation, a hash-table probe and a WeakReference
+        // dereference for names seen before. Bounded: at most StringCacheLimit keywords are kept
+        // alive by the cache; others intern as before.
+        const int StringCacheLimit = 8192;
+        static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Keyword> _stringCache = new(StringComparer.Ordinal);
+
         public static Keyword intern(String nsname)
+        {
+            if (_stringCache.TryGetValue(nsname, out Keyword cached))
+                return cached;
+            Keyword k = InternUncached(nsname);
+            if (_stringCache.Count < StringCacheLimit)
+                _stringCache.TryAdd(nsname, k);
+            return k;
+        }
+
+        static Keyword InternUncached(String nsname)
         {
             return intern(Symbol.intern(nsname));
         }
@@ -155,7 +171,8 @@ namespace clojure.lang
             if ( ReferenceEquals(this,obj) ) 
                 return true;
 
-            return obj is Keyword keyword && _sym.Equals(keyword.Symbol);
+            // _hasheq is derived from the symbol's hash: different hashes, different symbols.
+            return obj is Keyword keyword && _hasheq == keyword._hasheq && _sym.Equals(keyword.Symbol);
         }
 
         /// <summary>
